@@ -26,8 +26,9 @@ import { AssetCheckPlan } from './pages/AssetCheckPlan';
 import { api } from './services/apiService';
 import { Wifi, WifiOff, UploadCloud, AlertCircle } from 'lucide-react';
 
-// --- Global Component Registry ---
-const COMPONENT_MAP: Record<string, React.FC<any>> = {
+// --- Page Registry for Dynamic Loading ---
+// We map database "sheet" values to React Components.
+const PAGE_REGISTRY: Record<string, React.FC<any>> = {
   'dashboard': Dashboard,
   'mastercompany': MasterCompany,
   'masterproductgroup': MasterProductGroup,
@@ -48,12 +49,22 @@ const COMPONENT_MAP: Record<string, React.FC<any>> = {
   'systemadmin': SystemAdmin,
   'inventory': Inventory,
   'assetcheckplan': AssetCheckPlan,
-  // Alias mapping
+  // Common legacy or alternate naming patterns from Database
   'ms_company': MasterCompany,
   'ms_project': MasterProject,
   'ms_product': MasterProduct,
   'w_receiving': Receiving,
   'w_sales': Sales
+};
+
+const parseParams = (paramStr: string | undefined) => {
+  if (!paramStr) return {};
+  const params: any = {};
+  paramStr.split('&').forEach(part => {
+    const [key, value] = part.split('=');
+    if (key) params[key.trim()] = value?.trim();
+  });
+  return params;
 };
 
 const App = () => {
@@ -71,6 +82,21 @@ const App = () => {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [previewData, setPreviewData] = useState<{id: string, type: 'RECEIVE' | 'SALES' } | null>(null);
 
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const handleLogin = (user: string, server: string, database: string) => {
     setUsername(user);
     setCurrentServer(server);
@@ -86,8 +112,14 @@ const App = () => {
 
   const handleNavigate = (pid: string, sheet?: string, param?: string) => {
       setIsPreviewMode(false);
-      const targetSheet = pid === 'dashboard' ? 'Dashboard' : (sheet || 'Dashboard');
-      setCurrentRoute({ pid, sheet: targetSheet, param: param || '' });
+      let targetSheet = sheet || 'Dashboard';
+      if (pid === 'dashboard') targetSheet = 'Dashboard';
+      
+      setCurrentRoute({ 
+          pid, 
+          sheet: targetSheet, 
+          param: param || '' 
+      });
   };
 
   const handlePreview = (id: string, type: 'RECEIVE' | 'SALES') => {
@@ -96,35 +128,46 @@ const App = () => {
   };
 
   const renderContent = () => {
-    if (isPreviewMode) return <DocumentPreview data={previewData} onBack={() => setIsPreviewMode(false)} />;
+    if (isPreviewMode) {
+        return <DocumentPreview data={previewData} onBack={() => setIsPreviewMode(false)} />;
+    }
 
-    // Advanced Normalization for Legacy Support
-    const rawSheet = currentRoute.sheet || 'Dashboard';
-    const cleanSheet = rawSheet
+    const rawSheetName = currentRoute.sheet || 'Dashboard';
+    
+    // Robust cleaning: remove extension-like suffixes, trailing dots, and lowercase everything
+    const cleanSheet = rawSheetName
+      .split('.')[0] // Take only the part before the first dot if it's like "Receiving.php"
       .toLowerCase()
-      .split('.')[0] // Remove .php, .asp, etc.
-      .replace(/_/g, '') // Normalize underscores
       .trim();
     
-    const Component = COMPONENT_MAP[cleanSheet] || Dashboard;
+    const Component = PAGE_REGISTRY[cleanSheet];
     
-    // Parse parameters into props
-    const props: any = {};
-    if (currentRoute.param) {
-      currentRoute.param.split('&').forEach(p => {
-        const [k, v] = p.split('=');
-        if (k) props[k.trim()] = v ? v.trim() : true;
-      });
+    if (Component) {
+        const props = parseParams(currentRoute.param);
+        return <Component {...props} pid={currentRoute.pid} onPreview={handlePreview} />;
     }
 
     return (
-        <div className="h-full animate-in fade-in zoom-in-95 duration-500">
-             <Component {...props} pid={currentRoute.pid} onPreview={handlePreview} />
+        <div className="flex flex-col items-center justify-center h-full text-slate-400">
+            <div className="p-8 bg-white rounded-[2rem] shadow-xl border border-slate-100 flex flex-col items-center max-w-sm">
+                <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mb-4">
+                    <AlertCircle size={32} />
+                </div>
+                <h3 className="text-lg font-black text-slate-800 mb-2">Program Not Linked</h3>
+                <p className="text-xs text-center leading-relaxed mb-6">
+                    Sheet <b>"{rawSheetName}"</b> (Cleaned: "{cleanSheet}") is not mapped to a component.
+                </p>
+                <button onClick={() => handleNavigate('dashboard', 'Dashboard')} className="w-full py-3 bg-primary-800 text-white rounded-xl font-bold">
+                   Return to Dashboard
+                </button>
+            </div>
         </div>
     );
   };
   
-  if (!isLoggedIn) return <Login onLogin={handleLogin} />;
+  if (!isLoggedIn) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   return (
     <Layout 

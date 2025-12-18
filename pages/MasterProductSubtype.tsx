@@ -1,17 +1,18 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Card, Button, Input, SearchableSelect, Badge, Pagination, LoadingOverlay } from '../components/ui';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Card, Button, Input, SearchableSelect, Badge, Pagination } from '../components/ui';
 import { api } from '../services/apiService';
 import { MasterGroup, MasterType, MasterSubtype } from '../types';
 import { 
-  Edit, Trash2, Plus, Save, Database, X, Search, RefreshCw, Layers, ChevronRight, Activity, Cpu
+  Edit, Trash2, Plus, Save, X, Database, Search, RefreshCw,
+  Layers, ShieldCheck, Clock, User, Tag, ListTree
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const MasterProductSubtype = () => {
     const { t } = useLanguage();
     
-    // Super Max Atomic Cascade States
+    // Data States
     const [groups, setGroups] = useState<MasterGroup[]>([]);
     const [types, setTypes] = useState<MasterType[]>([]);
     const [subtypes, setSubtypes] = useState<MasterSubtype[]>([]);
@@ -19,120 +20,122 @@ export const MasterProductSubtype = () => {
     const [selectedGroup, setSelectedGroup] = useState('');
     const [selectedType, setSelectedType] = useState('');
     const [loading, setLoading] = useState(false);
-
-    // List & Form Precision States
+    
+    // UI States
     const [isEditing, setIsEditing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 20;
 
-    const [form, setForm] = useState<MasterSubtype>({
+    const initialForm: MasterSubtype = {
         product_group_code: '',
         product_type_code: '',
         product_subtype_code: '',
         description: '',
-        is_status: 'Y'
-    });
+        is_status: 'Y',
+        idp_code: '',
+        desc_eng: '',
+        update_id: 'SYSTEM'
+    };
+
+    const [formData, setFormData] = useState<MasterSubtype>(initialForm);
     const [editMode, setEditMode] = useState<'create'|'update'>('create');
 
-    // --- Core Atomic Synchronization ---
-
-    // 1. Initial Cluster Load
+    // 1. Load Groups
     useEffect(() => {
-        const initKernel = async () => {
+        const init = async () => {
             setLoading(true);
             try {
                 const g = await api.getMasterGroups();
-                const groupData = Array.isArray(g) ? g : [];
-                setGroups(groupData);
-                if (groupData.length > 0 && !selectedGroup) {
-                  setSelectedGroup(String(groupData[0].product_group_code));
-                }
-            } catch(e) { console.error("CRITICAL ERROR: Initial Group Cluster Failure", e); }
-            finally { setLoading(false); }
+                const groupsArr = Array.isArray(g) ? g : [];
+                setGroups(groupsArr);
+                if (groupsArr.length > 0) setSelectedGroup(groupsArr[0].product_group_code);
+            } catch(e) { console.error(e); }
+            setLoading(false);
         };
-        initKernel();
+        init();
     }, []);
 
-    // 2. Cascade Layer 1 Reset (Group -> Clear Child Nodes)
-    const handleGroupSwitch = useCallback((newGroupId: string) => {
-        setLoading(true);
-        setSelectedGroup(newGroupId);
-        setSelectedType(''); 
-        setSubtypes([]);     
-        setTypes([]);        
-        setCurrentPage(1);
-    }, []);
-
-    // 3. Layer 2 Sync (Type -> Triggered by Group established)
+    // 2. Load Types when Group changes
     useEffect(() => {
-        if (!selectedGroup) return;
-        const syncTypeLayer = async () => {
+        const fetchTypes = async () => {
+            if (!selectedGroup) return;
             setLoading(true);
             try {
-                const tRes = await api.getMasterTypes(selectedGroup);
-                const typeData = Array.isArray(tRes) ? tRes : [];
-                setTypes(typeData);
-                // Atomic auto-bind or purge
-                if (typeData.length > 0) setSelectedType(String(typeData[0].product_type_code));
+                const tData = await api.getMasterTypes(selectedGroup);
+                const typesArr = Array.isArray(tData) ? tData : [];
+                setTypes(typesArr);
+                if (typesArr.length > 0) setSelectedType(typesArr[0].product_type_code);
                 else setSelectedType('');
-            } catch(e) { setTypes([]); }
-            finally { setLoading(false); }
+            } catch(e) { console.error(e); }
+            setLoading(false);
         };
-        syncTypeLayer();
+        fetchTypes();
     }, [selectedGroup]);
 
-    // 4. Layer 3 Sync (Subtype -> Final Data Plane)
-    useEffect(() => {
-        const syncDataPlane = async () => {
-            if (!selectedGroup || !selectedType) {
-                setSubtypes([]);
-                return;
-            }
-            setLoading(true);
-            try {
-                const data = await api.getMasterSubtypes(selectedGroup, selectedType);
-                setSubtypes(Array.isArray(data) ? data : []);
-                setCurrentPage(1); 
-            } catch(e) { setSubtypes([]); }
-            finally { setLoading(false); }
-        };
-        syncDataPlane();
+    // 3. Load Subtypes when Type changes
+    useEffect(() => { 
+        if (selectedGroup && selectedType) loadSubtypes();
+        else setSubtypes([]);
     }, [selectedGroup, selectedType]);
 
-    const handleEditInitiate = (item: MasterSubtype) => {
-        setForm({ ...item }); 
-        setEditMode('update'); 
+    const loadSubtypes = async () => {
+        setLoading(true);
+        try {
+            const data = await api.getMasterSubtypes(selectedGroup, selectedType);
+            setSubtypes(Array.isArray(data) ? data : []);
+            setCurrentPage(1);
+        } catch(e) { 
+            console.error(e); 
+            setSubtypes([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleEdit = (item: MasterSubtype) => {
+        setFormData(item);
+        setEditMode('update');
         setIsEditing(true);
     };
 
-    const handlePurge = async (scode: string) => {
+    const handleCreate = () => {
+        setFormData({ 
+            ...initialForm, 
+            product_group_code: selectedGroup,
+            product_type_code: selectedType 
+        });
+        setEditMode('create');
+        setIsEditing(true);
+    };
+
+    const handleDelete = async (item: MasterSubtype) => {
         if (!confirm(t('msg.confirm_delete'))) return;
-        setLoading(true);
         try {
-            await api.deleteMasterSubtype(selectedGroup, selectedType, scode);
-            const data = await api.getMasterSubtypes(selectedGroup, selectedType);
-            setSubtypes(Array.isArray(data) ? data : []);
-        } catch(e) { alert(t('msg.delete_fail')); }
-        finally { setLoading(false); }
+            await api.deleteMasterSubtype(item.product_group_code, item.product_type_code, item.product_subtype_code);
+            loadSubtypes();
+        } catch(e) { alert('Delete Failed'); }
     };
 
-    const handleCommit = async () => {
-        if (!form.product_subtype_code || !form.description) return alert('PK Consistency Failure: Missing required attributes');
+    const handleSave = async () => {
+        if (!formData.product_subtype_code || !formData.description) {
+            alert(t('msg.required_fields'));
+            return;
+        }
         setLoading(true);
         try {
-            await api.saveMasterSubtype({...form, product_group_code: selectedGroup, product_type_code: selectedType});
-            setIsEditing(false); 
-            const data = await api.getMasterSubtypes(selectedGroup, selectedType);
-            setSubtypes(Array.isArray(data) ? data : []);
-        } catch(e) { alert(t('msg.save_fail')); }
-        finally { setLoading(false); }
+            await api.saveMasterSubtype(formData);
+            setIsEditing(false);
+            loadSubtypes();
+        } catch(e) { 
+            alert('Save Failed'); 
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // Advanced Filtering Logic
     const filteredList = useMemo(() => {
-        const term = searchTerm.toLowerCase().trim();
-        if (!term) return subtypes;
+        const term = searchTerm.toLowerCase();
         return subtypes.filter(s => 
             (s.product_subtype_code?.toLowerCase() || '').includes(term) ||
             (s.description?.toLowerCase() || '').includes(term) ||
@@ -147,139 +150,211 @@ export const MasterProductSubtype = () => {
 
     if (isEditing) {
         return (
-            <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
-                <LoadingOverlay show={loading} />
-                <div className="flex justify-between items-center bg-white p-8 rounded-[3rem] border border-slate-200 shadow-2xl sticky top-0 z-30 ring-1 ring-slate-900/5">
-                    <div className="flex items-center gap-6">
-                        <div className="p-5 bg-primary-800 text-white rounded-[2rem] shadow-2xl relative group overflow-hidden transition-transform hover:rotate-3">
-                           <Cpu size={40}/>
-                           <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
-                        </div>
+            <div className="space-y-4 animate-in fade-in duration-300 pb-20">
+                <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm sticky top-0 z-20">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-primary-800 text-white rounded-xl shadow-lg"><ListTree size={24}/></div>
                         <div>
-                            <h1 className="text-3xl font-black text-slate-800 tracking-tighter leading-none mb-2 uppercase">
-                                {editMode === 'create' ? 'Establish Node' : 'Overwrite Node'}
+                            <h1 className="text-xl font-black text-slate-800 tracking-tight">
+                                {editMode === 'create' ? t('btn.add') : 'แก้ไขประเภทย่อยสินค้า'}
                             </h1>
-                            <div className="flex items-center gap-3">
-                                <Badge type="primary">{selectedGroup}</Badge>
-                                <ChevronRight size={14} className="text-slate-300" />
-                                <Badge type="neutral">{selectedType}</Badge>
-                            </div>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Master File Maintenance</p>
                         </div>
                     </div>
-                    <div className="flex gap-4">
-                        <Button variant="secondary" onClick={() => setIsEditing(false)} className="px-10 border-2 border-slate-100">
-                            <X size={20}/> {t('btn.cancel')}
+                    <div className="flex gap-2">
+                        <Button variant="secondary" onClick={() => setIsEditing(false)} disabled={loading} className="rounded-xl px-6 font-bold">
+                            <X size={16}/> {t('btn.cancel')}
                         </Button>
-                        <Button onClick={handleCommit} className="bg-emerald-600 hover:bg-emerald-700 text-white px-16 font-black shadow-[0_20px_40px_-10px_rgba(16,185,129,0.3)] border-b-4 border-emerald-900/20" disabled={loading}>
-                            <Save size={20}/> COMMIT DATA
+                        <Button onClick={handleSave} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-8 font-black shadow-lg" disabled={loading}>
+                            {loading ? <RefreshCw className="animate-spin" size={16}/> : <Save size={16}/>} {t('btn.save')}
                         </Button>
                     </div>
                 </div>
-                
-                <Card className="border-0 shadow-2xl rounded-[3rem] ring-1 ring-slate-100 relative overflow-hidden bg-white">
-                    <div className="absolute top-0 left-0 w-3 h-full bg-gradient-to-b from-emerald-500 to-emerald-600"></div>
-                    <div className="p-12 grid grid-cols-1 md:grid-cols-2 gap-12">
-                        <Input label="Sub-Class Identity Code (PK) *" dbField="product_subtype_code" value={form.product_subtype_code} onChange={e => setForm({...form, product_subtype_code: e.target.value.toUpperCase()})} disabled={editMode==='update'} className={editMode==='update' ? 'bg-slate-50 font-black text-primary-900 border-dashed opacity-60' : 'font-black text-primary-800'} />
-                        <Input label="Canonical Thai Labeling *" dbField="description" value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="font-bold" />
-                        <Input label="Canonical English Labeling" dbField="desc_eng" value={form.desc_eng || ''} onChange={e => setForm({...form, desc_eng: e.target.value})} />
-                        <Input label="External IDP Registry Mapping" dbField="idp_code" value={form.idp_code || ''} onChange={e => setForm({...form, idp_code: e.target.value})} placeholder="Node Index ID..." />
-                        
-                        <div className="md:col-span-2 mt-6 pt-12 border-t-4 border-slate-50">
-                             <label className={`flex items-center gap-8 cursor-pointer p-10 rounded-[2.5rem] border-4 transition-all group ${form.is_status === 'Y' ? 'bg-emerald-50/50 border-emerald-100 shadow-inner' : 'bg-slate-50 border-slate-200'}`}>
-                                <div className={`w-14 h-14 rounded-2xl border-4 flex items-center justify-center transition-all ${form.is_status === 'Y' ? 'bg-emerald-600 border-emerald-500 shadow-xl scale-110' : 'bg-white border-slate-300 opacity-40'}`}>
-                                    {form.is_status === 'Y' && <Activity size={28} className="text-white animate-pulse" />}
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    <div className="lg:col-span-8 space-y-6">
+                        <Card title="ข้อมูลความสัมพันธ์และรหัสประเภทย่อย" className="border-0 shadow-xl ring-1 ring-slate-100">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                                <div className="md:col-span-2 space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-100 mb-2">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">กลุ่มสินค้า (Group)</span>
+                                            <div className="bg-white border border-slate-200 p-2.5 rounded-lg font-bold text-slate-800 text-sm">
+                                                {formData.product_group_code} : {groups.find(g => g.product_group_code === formData.product_group_code)?.description}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ประเภทสินค้า (Type)</span>
+                                            <div className="bg-white border border-slate-200 p-2.5 rounded-lg font-bold text-slate-800 text-sm">
+                                                {formData.product_type_code} : {types.find(t => t.product_type_code === formData.product_type_code)?.description}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <input type="checkbox" className="hidden" checked={form.is_status === 'Y'} onChange={e => setForm({...form, is_status: e.target.checked ? 'Y' : 'N'})} />
-                                <div className="flex-1">
-                                    <span className={`block font-black text-lg uppercase tracking-widest ${form.is_status === 'Y' ? 'text-emerald-800' : 'text-slate-400'}`}>Operational Access Control</span>
-                                    <p className="text-[12px] text-slate-400 font-bold group-hover:text-primary-600 transition-colors mt-1">Determines whether this node is accessible for material transactions and procurement modules.</p>
-                                </div>
-                             </label>
-                        </div>
+                                <Input 
+                                    label="รหัสประเภทย่อยสินค้า *" 
+                                    dbField="product_subtype_code" 
+                                    value={formData.product_subtype_code} 
+                                    onChange={e => setFormData({...formData, product_subtype_code: e.target.value})} 
+                                    disabled={editMode==='update'} 
+                                    className={editMode==='update' ? 'bg-slate-50 font-black' : 'font-black'} 
+                                />
+                                <Input 
+                                    label="รหัสอ้างอิง IDP" 
+                                    dbField="idp_code" 
+                                    value={formData.idp_code || ''} 
+                                    onChange={e => setFormData({...formData, idp_code: e.target.value})} 
+                                />
+                                <div className="md:col-span-2"><Input label="ชื่อประเภทย่อยสินค้า (ภาษาไทย) *" dbField="description" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="font-bold" /></div>
+                                <div className="md:col-span-2"><Input label="ชื่อประเภทย่อยสินค้า (English)" dbField="desc_eng" value={formData.desc_eng || ''} onChange={e => setFormData({...formData, desc_eng: e.target.value})} /></div>
+                            </div>
+                        </Card>
                     </div>
-                </Card>
+
+                    <div className="lg:col-span-4 space-y-6">
+                        <Card title="สถานะการใช้งาน" className="border-0 shadow-xl ring-1 ring-slate-100">
+                            <label className={`group flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition-all ${formData.is_status === 'Y' ? 'bg-primary-50/20 border-primary-100' : ''}`}>
+                                <div className="flex flex-col">
+                                    <span className={`text-[11px] font-black uppercase tracking-wider ${formData.is_status === 'Y' ? 'text-primary-700' : 'text-slate-500'}`}>สถานะใช้งาน</span>
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase">Active Status</span>
+                                </div>
+                                <div className="relative inline-flex items-center">
+                                    <input 
+                                        type="checkbox" 
+                                        className="sr-only peer" 
+                                        checked={formData.is_status === 'Y'} 
+                                        onChange={(e) => setFormData({...formData, is_status: e.target.checked ? 'Y' : 'N'})} 
+                                    />
+                                    <div className="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-primary-500/10 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                </div>
+                            </label>
+                            {editMode === 'update' && (
+                                <div className="mt-8 space-y-3 pt-6 border-t border-slate-100">
+                                    <div className="flex items-center gap-3 text-slate-400">
+                                        <User size={14}/>
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">By: {formData.update_id || 'SYSTEM'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-slate-400">
+                                        <Clock size={14}/>
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Date: {formData.update_date ? new Date(formData.update_date).toLocaleString() : '-'}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </Card>
+                    </div>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-8 h-full flex flex-col animate-in fade-in duration-500 overflow-hidden pb-4">
-            <LoadingOverlay show={loading} />
-            
-            {/* Control Bar */}
-            <div className="flex flex-col xl:flex-row justify-between items-center bg-white p-6 rounded-[3rem] border border-slate-200 shadow-xl gap-8 shrink-0 ring-1 ring-slate-900/5">
-                <div className="flex items-center gap-6">
-                    <div className="p-5 bg-primary-800 text-white rounded-[2rem] shadow-2xl relative transition-transform hover:scale-105 active:scale-95"><Database size={36}/></div>
+        <div className="space-y-4 h-full flex flex-col animate-in fade-in duration-500">
+            <div className="flex flex-col lg:flex-row justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm gap-4 shrink-0">
+                <div className="flex items-center gap-3">
+                    <div className="p-3 bg-primary-800 text-white rounded-2xl shadow-lg"><Database size={24}/></div>
                     <div>
-                        <h1 className="text-3xl font-black text-slate-800 tracking-tighter leading-none mb-2 uppercase">{t('menu.master_product_subtype')}</h1>
-                        <div className="flex items-center gap-3">
-                           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
-                           <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.4em]">Hierarchical Maintenance Cluster</p>
-                        </div>
+                        <h1 className="text-xl font-black text-slate-800 tracking-tight leading-none mb-1">{t('menu.master_product_subtype')}</h1>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Subcategory Maintenance</p>
                     </div>
                 </div>
-                <div className="flex flex-col md:flex-row items-center gap-6 w-full xl:w-auto">
-                    <div className="w-full md:w-72"><SearchableSelect label="1. Category Layer" options={groups.map(g => ({value: String(g.product_group_code), label: g.description}))} value={selectedGroup} onChange={handleGroupSwitch} /></div>
-                    <div className="w-full md:w-72"><SearchableSelect label="2. Class Layer" options={types.map(t => ({value: String(t.product_type_code), label: t.description}))} value={selectedType} onChange={setSelectedType} disabled={!selectedGroup || types.length === 0} /></div>
-                    <div className="relative w-full md:w-56 mt-auto pb-0.5 group">
-                        <input className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-[1.5rem] text-[12px] font-black focus:outline-none focus:ring-8 focus:ring-primary-500/5 focus:border-primary-500/30 transition-all placeholder:text-slate-300" placeholder="TERMINAL SEARCH..." value={searchTerm} onChange={e => {setSearchTerm(e.target.value); setCurrentPage(1);}} />
-                        <Search size={20} className="absolute left-4 top-4 text-slate-300 group-focus-within:text-primary-600 transition-colors"/>
+                <div className="flex flex-col md:flex-row items-center gap-3 w-full lg:w-auto">
+                    <div className="w-full md:w-56">
+                        <SearchableSelect 
+                            label="กลุ่มสินค้า" 
+                            options={groups.map(g => ({value: g.product_group_code, label: `${g.product_group_code}: ${g.description}`}))} 
+                            value={selectedGroup} 
+                            onChange={setSelectedGroup} 
+                        />
                     </div>
-                    <Button onClick={() => { if(!selectedGroup || !selectedType) return alert('Binding Error: Selection nodes incomplete'); setForm({product_group_code: selectedGroup, product_type_code: selectedType, product_subtype_code:'', description:'', is_status:'Y'}); setEditMode('create'); setIsEditing(true); }} className="bg-primary-800 hover:bg-primary-900 text-white rounded-[1.5rem] py-4 px-10 font-black shrink-0 shadow-2xl active:scale-95 border-b-4 border-black/20"><Plus size={20}/> {t('btn.add')}</Button>
+                    <div className="w-full md:w-56">
+                        <SearchableSelect 
+                            label="ประเภทสินค้า" 
+                            options={types.map(t => ({value: t.product_type_code, label: `${t.product_type_code}: ${t.description}`}))} 
+                            value={selectedType} 
+                            onChange={setSelectedType} 
+                        />
+                    </div>
+                    <div className="relative w-full md:w-32 mt-auto pb-0.5 group">
+                        <input 
+                            className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-4 focus:ring-primary-500/10 transition-all" 
+                            placeholder="ค้นหา..." 
+                            value={searchTerm} 
+                            onChange={e => {setSearchTerm(e.target.value); setCurrentPage(1);}} 
+                        />
+                        <Search size={14} className="absolute left-3 top-3 text-slate-400 group-focus-within:text-primary-500 transition-colors"/>
+                    </div>
+                    <button onClick={loadSubtypes} className="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 shadow-sm mt-auto mb-0.5">
+                        <RefreshCw size={20} className={loading ? 'animate-spin' : ''}/>
+                    </button>
+                    <Button 
+                        onClick={handleCreate} 
+                        disabled={!selectedType}
+                        className="bg-primary-800 hover:bg-primary-900 text-white rounded-xl py-2.5 px-6 font-black shadow-lg mt-auto mb-0.5 disabled:opacity-50"
+                    >
+                        <Plus size={18}/> {t('btn.add')}
+                    </Button>
                 </div>
             </div>
 
-            {/* Data Plane */}
-            <Card className="flex-1 flex flex-col overflow-hidden p-0 border-0 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.1)] rounded-[3rem] bg-white ring-1 ring-slate-100 relative">
-                <div className="overflow-y-auto flex-1 custom-scrollbar">
+            <Card className="flex-1 flex flex-col overflow-hidden p-0 border-0 shadow-xl rounded-2xl bg-white ring-1 ring-slate-100">
+                <div className="overflow-auto flex-1 custom-scrollbar">
                     <table className="w-full text-xs text-left border-separate border-spacing-0">
-                        <thead className="sticky top-0 z-10">
-                            <tr className="bg-slate-50/95 backdrop-blur-xl text-slate-700">
-                                <th className="py-6 px-10 border-b border-slate-100 text-slate-500 font-black tracking-[0.3em] text-[10px] w-48 text-center uppercase">Node Address</th>
-                                <th className="py-6 px-10 border-b border-slate-100 text-slate-500 font-black tracking-[0.3em] text-[10px] uppercase">Hierarchical Nomenclature</th>
-                                <th className="py-6 px-10 border-b border-slate-100 text-slate-500 font-black tracking-[0.3em] text-[10px] w-48 text-center uppercase">Global Registry</th>
-                                <th className="py-6 px-10 border-b border-slate-100 text-slate-500 font-black tracking-[0.3em] text-[10px] text-center w-36 uppercase">Status</th>
-                                <th className="py-6 px-10 border-b border-slate-100 text-slate-500 font-black tracking-[0.3em] text-[10px] text-center w-36 uppercase">Operations</th>
+                        <thead className="sticky top-0 z-10 shadow-sm">
+                            <tr className="bg-slate-100 text-slate-700 font-bold uppercase">
+                                <th className="py-2 px-3 border-b border-slate-200 text-slate-500 font-black tracking-widest text-[9px] w-32">Subtype Code</th>
+                                <th className="py-2 px-3 border-b border-slate-200 text-slate-500 font-black tracking-widest text-[9px]">Description</th>
+                                <th className="py-2 px-3 border-b border-slate-200 text-slate-500 font-black tracking-widest text-[9px] w-32">IDP Code</th>
+                                <th className="py-2 px-3 border-b border-slate-200 text-slate-500 font-black tracking-widest text-[9px] text-center w-24">Status</th>
+                                <th className="py-2 px-3 border-b border-slate-200 text-slate-500 font-black tracking-widest text-[9px] text-center w-24">Action</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50 bg-white">
-                            {currentItems.map((s, idx) => (
-                                <tr key={s.product_subtype_code} className={`group hover:bg-slate-50 transition-all duration-300 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/20'}`}>
-                                    <td className="py-5 px-10 align-middle font-mono font-bold text-primary-800">
-                                        <div className="bg-primary-50 border border-primary-100/50 px-4 py-3 rounded-2xl text-center shadow-xs font-black group-hover:scale-105 transition-transform">
-                                            {s.product_subtype_code}
-                                        </div>
+                        <tbody className="divide-y divide-slate-50">
+                            {loading && subtypes.length === 0 ? (
+                                <tr><td colSpan={5} className="p-32 text-center"><RefreshCw className="animate-spin mx-auto text-primary-500 mb-4" size={32}/><span className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Loading Subtypes...</span></td></tr>
+                            ) : currentItems.map(s => (
+                                <tr key={s.product_subtype_code} className="group hover:bg-primary-50/30 transition-all duration-150">
+                                    <td className="py-1 px-3 align-middle font-mono font-bold text-primary-700">
+                                        <div className="bg-primary-50 border border-primary-100 px-2 py-0.5 rounded text-center">{s.product_subtype_code}</div>
                                     </td>
-                                    <td className="py-5 px-10 align-middle">
-                                        <div className="font-black text-slate-800 group-hover:text-primary-800 transition-colors uppercase tracking-tight text-sm mb-1.5">{s.description}</div>
-                                        <div className="text-[10px] text-slate-400 font-black uppercase tracking-[0.1em] truncate max-w-[500px] flex items-center gap-2.5">
-                                            <Layers size={14} className="opacity-30" /> 
-                                            {s.desc_eng || 'System: No Alternate Label Detected'}
-                                        </div>
+                                    <td className="py-1 px-3 align-middle">
+                                        <div className="font-bold text-slate-800">{s.description}</div>
+                                        <div className="text-[10px] text-slate-400 font-bold mt-0.5 uppercase">{s.desc_eng || '-'}</div>
                                     </td>
-                                    <td className="py-5 px-10 align-middle text-center"><span className="font-mono text-[11px] text-slate-500 bg-slate-100 px-4 py-2 rounded-xl border border-slate-200 font-black">{s.idp_code || 'NULL_PTR'}</span></td>
-                                    <td className="py-5 px-10 align-middle text-center"><Badge type={s.is_status==='Y'?'success':'neutral'}>{s.is_status}</Badge></td>
-                                    <td className="py-5 px-10 align-middle">
-                                        <div className="flex justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all transform scale-90 group-hover:scale-100">
-                                            <button onClick={() => handleEditInitiate(s)} className="p-3 text-primary-600 hover:bg-white rounded-2xl shadow-lg bg-white border border-slate-100 hover:border-primary-300 active:scale-75 transition-all" title="Modify Node"><Edit size={20}/></button>
-                                            <button onClick={() => handlePurge(s.product_subtype_code)} className="p-3 text-rose-600 hover:bg-white rounded-2xl shadow-lg bg-white border border-slate-100 hover:border-rose-300 active:scale-75 transition-all" title="Purge Node"><Trash2 size={20}/></button>
+                                    <td className="py-1 px-3 align-middle text-slate-500 font-mono text-[10px]">
+                                        {s.idp_code || '-'}
+                                    </td>
+                                    <td className="py-1 px-3 align-middle text-center">
+                                        {s.is_status === 'Y' ? (
+                                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-black text-[9px] uppercase border border-emerald-100">
+                                                <div className="w-1 h-1 rounded-full bg-emerald-500"></div> Active
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-50 text-slate-400 font-black text-[9px] uppercase border border-slate-200">
+                                                Inactive
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="py-1 px-3 align-middle">
+                                        <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button onClick={() => handleEdit(s)} className="p-1.5 text-primary-600 hover:bg-primary-50 rounded-lg" title="Edit"><Edit size={14}/></button>
+                                            <button onClick={() => handleDelete(s)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg" title="Delete"><Trash2 size={14}/></button>
                                         </div>
                                     </td>
                                 </tr>
                             ))}
-                            {currentItems.length === 0 && !loading && (
-                                <tr><td colSpan={5} className="p-72 text-center grayscale">
-                                    <div className="relative inline-block mb-10">
-                                       <Database size={80} className="mx-auto text-slate-200" strokeWidth={1} />
-                                       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-rose-400 rounded-full animate-ping"></div>
-                                    </div>
-                                    <p className="text-slate-400 font-black uppercase tracking-[0.8em] text-[12px] leading-relaxed">Cluster Buffer Empty<br/><span className="text-[10px] opacity-40 font-bold mt-3 block tracking-widest">Adjust hierarchical selectors to scan data nodes</span></p>
-                                </td></tr>
+                            {!loading && currentItems.length === 0 && (
+                                <tr><td colSpan={5} className="p-32 text-center text-slate-300 font-bold italic">No records found for this combination</td></tr>
                             )}
                         </tbody>
                     </table>
                 </div>
-                <Pagination currentPage={currentPage} totalItems={filteredList.length} itemsPerPage={itemsPerPage} onPageChange={setCurrentPage} />
+
+                <Pagination 
+                    currentPage={currentPage} 
+                    totalItems={filteredList.length} 
+                    itemsPerPage={itemsPerPage} 
+                    onPageChange={setCurrentPage} 
+                />
             </Card>
         </div>
     );

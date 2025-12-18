@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Button, Input, Pagination } from '../components/ui';
+import { Card, Button, Input } from '../components/ui';
 import { api } from '../services/apiService';
 import { SupplierItem } from '../types';
 import { 
-  Edit, Trash2, Plus, Save, Truck, Search, X, RefreshCw
+  Edit, Trash2, Plus, Save, Truck, Search, X, RefreshCw,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -19,50 +20,42 @@ export const MasterSupplier = () => {
     const itemsPerPage = 20;
 
     useEffect(() => {
-        setLoading(true);
-        // Simulation of data load
-        setTimeout(() => {
-            setSuppliers([
-                { supplier_code: 'SUP-001', supplier_name: 'Siam Cement Group (SCG)' },
-                { supplier_code: 'SUP-002', supplier_name: 'Thai Watsadu' },
-                { supplier_code: 'SUP-003', supplier_name: 'Global House' },
-                { supplier_code: 'SUP-004', supplier_name: 'HomePro PCL' }
-            ]);
-            setLoading(false);
-        }, 500);
+        // Mock loading
+        setSuppliers([
+            { supplier_code: 'SUP-001', supplier_name: 'Siam Cement Group' },
+            { supplier_code: 'SUP-002', supplier_name: 'Thai Watsadu' },
+            { supplier_code: 'SUP-003', supplier_name: 'Global House' }
+        ]);
     }, []);
 
     const filtered = useMemo(() => {
-        const term = searchTerm.toLowerCase();
         return suppliers.filter(s => 
-            (s.supplier_name?.toLowerCase() || '').includes(term) || 
-            (s.supplier_code?.toLowerCase() || '').includes(term)
+            (s.supplier_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
+            (s.supplier_code?.toLowerCase() || '').includes(searchTerm.toLowerCase())
         );
     }, [suppliers, searchTerm]);
 
-    const currentItems = useMemo(() => {
-        const start = (currentPage - 1) * itemsPerPage;
-        return filtered.slice(start, start + itemsPerPage);
-    }, [filtered, currentPage]);
+    const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+    const currentItems = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
         <div className="space-y-4 h-full flex flex-col animate-in fade-in duration-500">
-            <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm gap-4 shrink-0">
+            <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm gap-4">
                 <div className="flex items-center gap-3">
                     <div className="p-3 bg-primary-800 text-white rounded-2xl shadow-lg"><Truck size={24}/></div>
                     <h1 className="text-xl font-black text-slate-800 tracking-tight">{t('menu.master_supplier')}</h1>
                 </div>
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                    <div className="relative flex-1 md:w-64 group">
+                    <div className="relative flex-1 md:w-64">
                         <input className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-4 focus:ring-primary-500/10" placeholder="Search..." value={searchTerm} onChange={e => {setSearchTerm(e.target.value); setCurrentPage(1);}} />
-                        <Search size={14} className="absolute left-3 top-3 text-slate-400 group-focus-within:text-primary-500 transition-colors"/>
+                        <Search size={14} className="absolute left-3 top-3 text-slate-400"/>
                     </div>
-                    <Button onClick={() => { setForm({supplier_code:'', supplier_name:''}); setIsEditing(true); }} className="bg-primary-800 text-white rounded-xl py-2.5 px-6 font-black shadow-lg shadow-primary-900/20"><Plus size={18}/> {t('btn.add')}</Button>
+                    <Button onClick={() => setIsEditing(true)} className="bg-primary-800 hover:bg-primary-900 text-white rounded-xl py-2.5 px-6 font-black"><Plus size={18}/> {t('btn.add')}</Button>
                 </div>
             </div>
 
             {isEditing && (
-                <Card title="Supplier Form Maintenance" className="border-0 shadow-xl ring-1 ring-slate-100 mb-4 animate-in slide-in-from-top-4 shrink-0">
+                <Card title="Supplier Form" className="border-0 shadow-xl ring-1 ring-slate-100 mb-4 animate-in slide-in-from-top-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
                         <Input label="Supplier Code *" value={form.supplier_code} onChange={e => setForm({...form, supplier_code: e.target.value})} />
                         <Input label="Supplier Name *" value={form.supplier_name} onChange={e => setForm({...form, supplier_name: e.target.value})} />
@@ -81,29 +74,42 @@ export const MasterSupplier = () => {
                             <tr className="bg-slate-100 text-slate-700 font-bold uppercase">
                                 <th className="py-2 px-3 border-b border-slate-200 text-slate-500 font-black tracking-widest text-[9px] w-48">Supplier Code</th>
                                 <th className="py-2 px-3 border-b border-slate-200 text-slate-500 font-black tracking-widest text-[9px]">Supplier Name</th>
-                                <th className="py-2 px-3 border-b border-slate-200 text-slate-500 font-black tracking-widest text-[9px] text-center w-32">Action</th>
+                                <th className="py-2 px-3 border-b border-slate-200 text-slate-500 font-black tracking-widest text-[9px] text-center w-24">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {loading ? (
-                                <tr><td colSpan={3} className="p-32 text-center"><RefreshCw className="animate-spin mx-auto text-primary-500" size={32}/></td></tr>
-                            ) : currentItems.map(s => (
+                            {currentItems.map(s => (
                                 <tr key={s.supplier_code} className="group hover:bg-primary-50/30 transition-all duration-150">
-                                    <td className="py-1.5 px-3 align-middle font-mono font-bold text-primary-700"><div className="bg-primary-50 border border-primary-100 px-2 py-0.5 rounded text-center">{s.supplier_code}</div></td>
-                                    <td className="py-1.5 px-3 align-middle font-bold text-slate-800">{s.supplier_name}</td>
-                                    <td className="py-1.5 px-3 align-middle">
+                                    <td className="py-1 px-3 align-middle font-mono font-bold text-primary-700"><div className="bg-primary-50 border border-primary-100 px-2 py-0.5 rounded text-center">{s.supplier_code}</div></td>
+                                    <td className="py-1 px-3 align-middle font-bold text-slate-800">{s.supplier_name}</td>
+                                    <td className="py-1 px-3 align-middle">
                                         <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                            <button className="p-1 text-primary-600 hover:bg-primary-50 rounded transition-colors"><Edit size={14}/></button>
-                                            <button className="p-1 text-rose-600 hover:bg-rose-50 rounded transition-colors"><Trash2 size={14}/></button>
+                                            <button className="p-1 text-primary-600 hover:bg-primary-50 rounded"><Edit size={14}/></button>
+                                            <button className="p-1 text-rose-600 hover:bg-rose-50 rounded"><Trash2 size={14}/></button>
                                         </div>
                                     </td>
                                 </tr>
                             ))}
-                            {!loading && currentItems.length === 0 && <tr><td colSpan={3} className="p-32 text-center text-slate-300 font-bold italic">No records found</td></tr>}
                         </tbody>
                     </table>
                 </div>
-                <Pagination currentPage={currentPage} totalItems={filtered.length} itemsPerPage={itemsPerPage} onPageChange={setCurrentPage} />
+
+                <div className="border-t border-slate-200 px-3 py-2 bg-slate-50 flex justify-between items-center shrink-0">
+                    <div className="text-[11px] text-slate-500 font-medium">Showing {Math.min(filtered.length, (currentPage-1)*itemsPerPage+1)} to {Math.min(filtered.length, currentPage*itemsPerPage)} of {filtered.length}</div>
+                    <div className="flex items-center space-x-1">
+                        <button onClick={() => setCurrentPage(1)} disabled={currentPage===1} className="p-1 rounded hover:bg-white disabled:opacity-30 transition-all text-slate-500"><ChevronsLeft size={14}/></button>
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage===1} className="p-1 rounded hover:bg-white disabled:opacity-30 transition-all text-slate-500"><ChevronLeft size={14}/></button>
+                        <div className="flex items-center space-x-2 px-2 border-x border-slate-200 mx-1">
+                            <span className="text-[11px] text-slate-500 font-medium">Page</span>
+                            <select value={currentPage} onChange={e => setCurrentPage(Number(e.target.value))} className="h-6 text-[11px] border rounded px-1 bg-white font-bold text-primary-700 min-w-[50px]">
+                                {Array.from({length: totalPages}, (_,i)=>i+1).map(n => <option key={n} value={n}>{n}</option>)}
+                            </select>
+                            <span className="text-[11px] text-slate-500 font-medium">of {totalPages}</span>
+                        </div>
+                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage===totalPages} className="p-1 rounded hover:bg-white disabled:opacity-30 transition-all text-slate-500"><ChevronRight size={14}/></button>
+                        <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage===totalPages} className="p-1 rounded hover:bg-white disabled:opacity-30 transition-all text-slate-500"><ChevronsRight size={14}/></button>
+                    </div>
+                </div>
             </Card>
         </div>
     );

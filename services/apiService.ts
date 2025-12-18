@@ -1,3 +1,4 @@
+
 import { 
   ReceiveHead, ReceiveDetail, 
   CompanyItem, StaffItem, XUser,
@@ -34,8 +35,7 @@ const fetchJson = async <T = any>(url: string, options?: RequestInit): Promise<T
 
 export const api = {
     // Auth
-    // Fix: Added server and database optional properties to the return type to match the backend response
-    checkDbConnection: async () => fetchJson<{status: string, server?: string, database?: string}>(`${API_URL}/health`),
+    checkDbConnection: async () => fetchJson<{status: string}>(`${API_URL}/health`),
     switchDatabase: async (target: string) => fetchJson(`${API_URL}/config/switch-db`, { method: 'POST', body: JSON.stringify({ target }) }),
     getUser: async (login: string) => fetchJson<XUser>(`${API_URL}/users/${encodeURIComponent(login)}`),
     getUserMenus: async (username: string) => fetchJson<MenuItem[]>(`${API_URL}/user-menus/${encodeURIComponent(username)}`),

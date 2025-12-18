@@ -1,6 +1,6 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-// Fixed: Removed non-existent 'Select' from imports as it is not used in this file
-import { Card, Button, Input, Pagination } from '../components/ui';
+import { Card, Button, Input, Select, Pagination } from '../components/ui';
 import { api } from '../services/apiService';
 import { CompanyItem } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
