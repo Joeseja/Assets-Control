@@ -1,0 +1,5 @@
+{
+  "name": "Sena Assets Management",
+  "description": "Inventory and Asset Management System tracking Construction Materials (A-Chai) and Serialized Assets (Sena) with FIFO logic.",
+  "requestFramePermissions": []
+}
