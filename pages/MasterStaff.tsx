@@ -1,11 +1,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Button, Input } from '../components/ui';
+import { Card, Button, Input, Pagination } from '../components/ui';
 import { api } from '../services/apiService';
 import { StaffItem } from '../types';
 import { 
-  Edit, Trash2, Plus, Save, Users, Search, X, RefreshCw,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
+  Edit, Trash2, Plus, Save, Users, Search, X, RefreshCw
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -36,13 +35,13 @@ export const MasterStaff = () => {
         );
     }, [staff, searchTerm]);
 
-    const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
-    const currentItems = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-    const goToPage = (page: number) => { if (page >= 1 && page <= totalPages) setCurrentPage(page); };
+    const currentItems = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filtered.slice(start, start + itemsPerPage);
+    }, [filtered, currentPage]);
 
     return (
-        <div className="space-y-4 h-full flex flex-col animate-in fade-in duration-500">
+        <div className="space-y-4 h-full flex flex-col animate-in fade-in duration-500 text-xs">
             <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm gap-4">
                 <div className="flex items-center gap-3">
                     <div className="p-3 bg-primary-800 text-white rounded-2xl shadow-lg"><Users size={24}/></div>
@@ -85,23 +84,7 @@ export const MasterStaff = () => {
                         </tbody>
                     </table>
                 </div>
-
-                <div className="border-t border-slate-200 px-3 py-2 bg-slate-50 flex justify-between items-center shrink-0">
-                    <div className="text-[11px] text-slate-500 font-medium">Showing {Math.min(filtered.length, (currentPage-1)*itemsPerPage+1)} to {Math.min(filtered.length, currentPage*itemsPerPage)} of {filtered.length}</div>
-                    <div className="flex items-center space-x-1">
-                        <button onClick={() => goToPage(1)} disabled={currentPage===1} className="p-1 rounded hover:bg-white disabled:opacity-30 transition-all text-slate-500"><ChevronsLeft size={14}/></button>
-                        <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage===1} className="p-1 rounded hover:bg-white disabled:opacity-30 transition-all text-slate-500"><ChevronLeft size={14}/></button>
-                        <div className="flex items-center space-x-2 px-2 border-x border-slate-200 mx-1">
-                            <span className="text-[11px] text-slate-500 font-medium">Page</span>
-                            <select value={currentPage} onChange={e => goToPage(Number(e.target.value))} className="h-6 text-[11px] border rounded px-1 bg-white font-bold text-primary-700 min-w-[50px]">
-                                {Array.from({length: totalPages}, (_,i)=>i+1).map(n => <option key={n} value={n}>{n}</option>)}
-                            </select>
-                            <span className="text-[11px] text-slate-500 font-medium">of {totalPages}</span>
-                        </div>
-                        <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage===totalPages} className="p-1 rounded hover:bg-white disabled:opacity-30 transition-all text-slate-500"><ChevronRight size={14}/></button>
-                        <button onClick={() => goToPage(totalPages)} disabled={currentPage===totalPages} className="p-1 rounded hover:bg-white disabled:opacity-30 transition-all text-slate-500"><ChevronsRight size={14}/></button>
-                    </div>
-                </div>
+                <Pagination currentPage={currentPage} totalItems={filtered.length} itemsPerPage={itemsPerPage} onPageChange={setCurrentPage} />
             </Card>
         </div>
     );

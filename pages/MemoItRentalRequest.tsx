@@ -1,15 +1,26 @@
 
-import React, { useState, useEffect } from 'react';
-import { Card, Button, Input, SearchableSelect } from '../components/ui';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Card, Button, Input, SearchableSelect, Badge, Pagination } from '../components/ui';
 import { api } from '../services/apiService';
 import { MemoItRentalHead, MemoItRentalDetail, CompanyItem, ProjectItem, StaffItem, LocationItem, StockItem } from '../types';
-import { Save, Trash2, Plus, RefreshCw, FileText, Search, X, Monitor } from 'lucide-react';
+import { 
+    Save, Trash2, Plus, RefreshCw, FileText, Search, X, Monitor, 
+    ArrowLeft, Edit, Calendar, User, Layout, Building
+} from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const MemoItRentalRequest = () => {
     const { t } = useLanguage();
 
-    // -- STATE --
+    // -- VIEW MODE --
+    const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+    const [isLoading, setIsLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 12;
+
+    // -- DATA STATE --
+    const [memos, setMemos] = useState<any[]>([]);
     const [isSaved, setIsSaved] = useState(false);
     
     // Header Fields
@@ -21,7 +32,7 @@ export const MemoItRentalRequest = () => {
     const [remark, setRemark] = useState('');
     const [projectCode, setProjectCode] = useState('');
     const [dueDate, setDueDate] = useState('');
-    const [isType, setIsType] = useState('RENTAL'); // Default
+    const [isType, setIsType] = useState('RENTAL');
 
     // Details Data
     const [details, setDetails] = useState<MemoItRentalDetail[]>([]);
@@ -33,59 +44,67 @@ export const MemoItRentalRequest = () => {
     const [locations, setLocations] = useState<LocationItem[]>([]);
     const [stocks, setStocks] = useState<StockItem[]>([]);
 
-    // Search Modal
-    const [showSearchModal, setShowSearchModal] = useState(false);
-    const [searchCriteria, setSearchCriteria] = useState({
-        comp_code: '',
-        memo_no: '',
-        staff_code: '',
-        project_code: ''
-    });
-    const [searchResults, setSearchResults] = useState<any[]>([]);
-
     useEffect(() => {
+        loadListData();
         loadMasterData();
     }, []);
 
-    // Load Master Data
-    const loadMasterData = async () => {
+    const loadListData = async () => {
+        setIsLoading(true);
         try {
-            const c = await api.getCompanies();
-            setCompanies(c || []);
-            if (c && c.length > 0) {
-                setCompCode(c[0].comp_code); // Default
-                setSearchCriteria(prev => ({...prev, comp_code: c[0].comp_code}));
-            }
-
-            const s = await api.getStaff();
-            setStaffList(s || []);
-            if (s.length > 0) setStaffCode(s[0].staff_code);
-
-            const l = await api.getLocations();
-            setLocations(l || []);
-            
-            // Initial Stocks load (using first location or empty)
-            if (l.length > 0) {
-                const st = await api.getStocks(l[0].location_code);
-                setStocks(st || []);
-            }
-        } catch (e) {
-            console.error("Load Master Error", e);
-        }
+            const data = await api.searchMemoItRental({});
+            setMemos(Array.isArray(data) ? data : []);
+        } catch (e) { console.error(e); }
+        setIsLoading(false);
     };
 
-    // Cascading: Project by Company
+    const loadMasterData = async () => {
+        try {
+            const [c, s, l] = await Promise.all([
+                api.getCompanies(),
+                api.getStaff(),
+                api.getLocations()
+            ]);
+            setCompanies(c || []);
+            setStaffList(s || []);
+            setLocations(l || []);
+            if (c.length > 0) setCompCode(c[0].comp_code);
+            if (s.length > 0) setStaffCode(s[0].staff_code);
+        } catch (e) { console.error(e); }
+    };
+
     useEffect(() => {
         const fetchProj = async () => {
             if (compCode) {
-               const p = await api.getProjects(compCode);
+               const p = await api.getProjects(compCode).catch(() => []);
                setProjects(p || []);
             }
         };
         fetchProj();
     }, [compCode]);
 
-    // Handle New / Clear
+    const handleEdit = async (item: any) => {
+        setIsLoading(true);
+        try {
+            const data = await api.getMemoItRental(item.comp_code, item.memo_no);
+            if (data) {
+                setCompCode(data.head.comp_code);
+                setMemoNo(data.head.memo_no);
+                setMemoDate(data.head.memo_date ? data.head.memo_date.split('T')[0] : '');
+                setStaffCode(data.head.staff_code || '');
+                setApproveCode(data.head.approve_code || '');
+                setRemark(data.head.remark || '');
+                setProjectCode(data.head.project_code || '');
+                setDueDate(data.head.due_date ? data.head.due_date.split('T')[0] : '');
+                setIsType(data.head.is_type || 'RENTAL');
+                setDetails(data.details.map((d: any, i: number) => ({ ...d, id: `exist-${i}` })));
+                setIsSaved(true);
+                setViewMode('form');
+            }
+        } catch (e) { alert("ไม่พบข้อมูลเอกสาร"); }
+        setIsLoading(false);
+    };
+
     const handleNew = () => {
         setMemoNo('');
         setMemoDate(new Date().toISOString().split('T')[0]);
@@ -94,107 +113,63 @@ export const MemoItRentalRequest = () => {
         setIsType('RENTAL');
         setDetails([]);
         setIsSaved(false);
+        setViewMode('form');
     };
 
-    // Handle Search Popup Search
-    const handlePopupSearch = async () => {
-        const results = await api.searchMemoItRental(searchCriteria);
-        setSearchResults(results);
-    };
-
-    // Handle Select Result from Search
-    const handleSelectSearchResult = async (item: any) => {
-        setShowSearchModal(false);
-        try {
-            const data = await api.getMemoItRental(item.comp_code, item.memo_no);
-            if (data) {
-                const { head, details } = data;
-                setCompCode(head.comp_code);
-                setMemoNo(head.memo_no);
-                setMemoDate(head.memo_date ? head.memo_date.split('T')[0] : '');
-                setStaffCode(head.staff_code || '');
-                setApproveCode(head.approve_code || '');
-                setRemark(head.remark || '');
-                setProjectCode(head.project_code || '');
-                setDueDate(head.due_date ? head.due_date.split('T')[0] : '');
-                setIsType(head.is_type || 'RENTAL');
-                
-                // Map details adding UI id
-                setDetails(details.map((d, i) => ({ ...d, id: `exist-${i}` })));
-                setIsSaved(true);
-            }
-        } catch (e) {
-            alert(t('msg.no_data'));
-        }
-    };
-
-    // Handle Save
     const handleSave = async () => {
-        if (!compCode || !memoNo) {
-            alert(t('msg.required_fields'));
-            return;
-        }
-
-        const head: MemoItRentalHead = {
-            comp_code: compCode,
-            memo_no: memoNo,
-            memo_date: memoDate,
-            staff_code: staffCode,
-            approve_code: approveCode,
-            remark: remark,
-            project_code: projectCode,
-            due_date: dueDate,
-            is_type: isType,
-            is_status: 'ACTIVE'
-        };
-
-        // Recalculate Seq
-        const finalDetails = details.map((d, i) => ({
-            ...d,
-            comp_code: compCode,
-            memo_no: memoNo,
-            seq: i + 1,
-            project_code: projectCode // Sync Detail Project with Head
-        }));
-
+        if (!compCode || !memoNo) return alert(t('msg.required_fields'));
+        setIsLoading(true);
         try {
+            const head: MemoItRentalHead = {
+                comp_code: compCode, memo_no: memoNo, memo_date: memoDate,
+                staff_code: staffCode, approve_code: approveCode,
+                remark: remark, project_code: projectCode,
+                due_date: dueDate, is_type: isType, is_status: 'ACTIVE'
+            };
+            const finalDetails = details.map((d, i) => ({
+                ...d, comp_code: compCode, memo_no: memoNo, seq: i + 1, project_code: projectCode
+            }));
             await api.saveMemoItRental({ head, details: finalDetails });
-            setIsSaved(true);
             alert(t('msg.save_success'));
-        } catch (e) {
-            alert(t('msg.save_fail'));
-        }
+            setViewMode('list');
+            loadListData();
+        } catch (e) { alert(t('msg.save_fail')); }
+        setIsLoading(false);
     };
 
-    // Handle Delete
     const handleDelete = async () => {
         if (!isSaved) return;
         if (!confirm(t('msg.confirm_delete'))) return;
+        setIsLoading(true);
         try {
             await api.deleteMemoItRental(compCode, memoNo);
-            handleNew();
             alert(t('msg.delete_success'));
-        } catch (e) {
-            alert(t('msg.delete_fail'));
-        }
+            setViewMode('list');
+            loadListData();
+        } catch (e) { alert(t('msg.delete_fail')); }
+        setIsLoading(false);
     };
 
-    // --- Details Grid Logic ---
+    const filteredMemos = useMemo(() => {
+        const term = searchTerm.toLowerCase();
+        return memos.filter(m => 
+            (m.memo_no || '').toLowerCase().includes(term) ||
+            (m.project_code || '').toLowerCase().includes(term) ||
+            (m.staff_name || '').toLowerCase().includes(term)
+        );
+    }, [memos, searchTerm]);
+
+    const currentItems = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredMemos.slice(start, start + itemsPerPage);
+    }, [filteredMemos, currentPage]);
+
+    // Grid Row Logic
     const addDetailRow = () => {
-        const newRow: MemoItRentalDetail = {
-            comp_code: compCode,
-            memo_no: memoNo,
-            seq: details.length + 1,
-            location_code: locations.length > 0 ? locations[0].location_code : '',
+        setDetails([...details, {
+            comp_code: compCode, memo_no: memoNo, seq: details.length + 1,
             id: `new-${Date.now()}`
-        };
-        setDetails([...details, newRow]);
-    };
-
-    const removeDetailRow = (index: number) => {
-        const list = [...details];
-        list.splice(index, 1);
-        setDetails(list);
+        }]);
     };
 
     const updateDetail = (index: number, field: keyof MemoItRentalDetail, value: any) => {
@@ -203,286 +178,183 @@ export const MemoItRentalRequest = () => {
         setDetails(list);
     };
 
+    // --- LIST VIEW RENDERING ---
+    if (viewMode === 'list') {
+        return (
+            <div className="space-y-4 h-full flex flex-col animate-in fade-in text-xs font-sans">
+                <div className="flex flex-col md:flex-row justify-between items-center bg-white p-3 rounded-xl border border-slate-200 shadow-sm shrink-0 gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-cyan-700 text-white rounded-lg shadow-md"><Monitor size={18} /></div>
+                        <div>
+                            <h1 className="text-sm font-black text-slate-800 leading-none">{t('memo_it.title')}</h1>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5 tracking-widest flex items-center gap-1">IT Equipment Rental Records</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 w-full md:w-auto">
+                        <div className="relative flex-1 md:w-64">
+                            <input className="w-full pl-8 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-4 focus:ring-cyan-500/10" placeholder="ค้นหาเลขที่บันทึก, โครงการ..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} />
+                            <Search size={14} className="absolute left-2.5 top-2 text-slate-400"/>
+                        </div>
+                        <button onClick={loadListData} className="p-1.5 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-500 shadow-sm active:scale-95 transition-all"><RefreshCw size={14} className={isLoading ? 'animate-spin' : ''}/></button>
+                        <Button onClick={handleNew} size="sm" className="bg-cyan-700 text-white font-bold px-6 rounded-lg shadow-md text-[10px] uppercase tracking-wider"><Plus size={14} /> สร้างบันทึกใหม่</Button>
+                    </div>
+                </div>
+
+                <Card className="flex-1 overflow-hidden p-0 border-0 shadow-xl rounded-xl bg-white flex flex-col">
+                    <div className="overflow-auto flex-1 custom-scrollbar">
+                        <table className="w-full text-left border-separate border-spacing-0">
+                            <thead className="sticky top-0 z-10 shadow-sm">
+                                <tr className="bg-slate-100 text-slate-500 font-black uppercase tracking-widest text-[9px]">
+                                    <th className="py-1.5 px-4 border-b border-slate-200 w-32 text-center">วันที่</th>
+                                    <th className="py-1.5 px-4 border-b border-slate-200 w-40">เลขที่บันทึก</th>
+                                    <th className="py-1.5 px-4 border-b border-slate-200">โครงการ / ผู้ขอ</th>
+                                    <th className="py-1.5 px-4 border-b border-slate-200 w-32 text-center">สถานะ</th>
+                                    <th className="py-1.5 px-4 border-b border-slate-200 text-center w-24">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {isLoading && memos.length === 0 ? (
+                                    <tr><td colSpan={5} className="p-20 text-center font-black uppercase text-slate-400 animate-pulse tracking-[0.2em]">Synchronizing Records...</td></tr>
+                                ) : currentItems.length === 0 ? (
+                                    <tr><td colSpan={5} className="p-20 text-center text-slate-300 font-bold italic">ไม่พบข้อมูลบันทึกการขอเช่า</td></tr>
+                                ) : (
+                                    currentItems.map(m => (
+                                        <tr key={`${m.comp_code}-${m.memo_no}`} className="group hover:bg-cyan-50/30 transition-all duration-150 cursor-pointer" onClick={() => handleEdit(m)}>
+                                            <td className="py-1 px-4 text-center align-middle">
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-slate-700">{new Date(m.memo_date).toLocaleDateString('th-TH')}</span>
+                                                    <span className="text-[9px] text-slate-400 font-mono italic">#{m.comp_code}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-1 px-4 font-mono font-black text-cyan-700 align-middle"><div className="bg-cyan-50 border border-cyan-100 px-2 py-0.5 rounded text-center shadow-sm">{m.memo_no}</div></td>
+                                            <td className="py-1 px-4 align-middle">
+                                                <div className="font-bold text-slate-800 uppercase leading-none mb-1 text-[11px]">{m.staff_name || m.staff_code}</div>
+                                                <div className="text-[9px] text-slate-400 font-bold flex items-center gap-1">
+                                                    <Building size={10} className="text-slate-300"/> Proj: {m.project_code || '-'}
+                                                </div>
+                                            </td>
+                                            <td className="py-1 px-4 text-center align-middle">
+                                                <Badge type="primary">{m.is_status}</Badge>
+                                            </td>
+                                            <td className="py-1 px-4 text-center align-middle">
+                                                <button onClick={(e) => { e.stopPropagation(); handleEdit(m); }} className="p-1 text-cyan-600 hover:bg-white hover:shadow-md rounded-lg transition-all border border-transparent hover:border-cyan-100"><Edit size={14}/></button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination currentPage={currentPage} totalItems={filteredMemos.length} itemsPerPage={itemsPerPage} onPageChange={setCurrentPage} />
+                </Card>
+            </div>
+        );
+    }
+
+    // --- FORM VIEW RENDERING ---
     return (
-        <div className="w-full h-full space-y-4 pb-20">
-            {/* Toolbar */}
+        <div className="w-full h-full space-y-4 pb-20 animate-in fade-in duration-300 text-xs font-sans">
             <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <div className="flex items-center gap-2">
-                    <div className="p-2 bg-cyan-50 text-cyan-700 rounded-lg"><Monitor size={24} /></div>
-                    <h1 className="text-xl font-bold text-primary-900">{t('memo_it.title')}</h1>
+                <div className="flex items-center gap-3">
+                    <button onClick={() => setViewMode('list')} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-cyan-600"><ArrowLeft size={18}/></button>
+                    <div className="p-2 bg-cyan-700 text-white rounded-lg shadow-lg"><Monitor size={20} /></div>
+                    <div>
+                        <h1 className="text-sm font-black text-slate-800 leading-none">{isSaved ? 'แก้ไขบันทึกขอเช่าอุปกรณ์ IT' : 'สร้างบันทึกขอเช่าอุปกรณ์ IT ใหม่'}</h1>
+                        <p className="text-slate-400 text-[9px] font-bold uppercase mt-1 tracking-widest">Transaction Mode: memo_it_head</p>
+                    </div>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="secondary" onClick={handleNew}><RefreshCw size={16}/> {t('btn.clear')}</Button>
-                    <Button onClick={handleSave} className="bg-cyan-600 hover:bg-cyan-700"><Save size={16}/> {t('btn.save')}</Button>
-                    {isSaved && <Button variant="danger" onClick={handleDelete}><Trash2 size={16}/> {t('btn.delete')}</Button>}
+                    <Button variant="secondary" size="sm" onClick={() => setViewMode('list')} className="px-4 border-slate-200 text-xs"><ArrowLeft size={14} /> กลับหน้ารายการ</Button>
+                    <Button onClick={handleSave} size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white px-8 font-black shadow-lg" disabled={isLoading}>
+                        {isLoading ? <RefreshCw className="animate-spin" size={14}/> : <Save size={14}/>} บันทึกเอกสาร
+                    </Button>
+                    {isSaved && <Button variant="danger" size="sm" onClick={handleDelete} className="px-4"><Trash2 size={14}/> ลบ</Button>}
                 </div>
             </div>
 
-            {/* Header Form */}
-            <Card className="p-6 shadow-md border-slate-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 text-sm">
-                    {/* Row 1 */}
-                    <div className="lg:col-span-3">
-                        <SearchableSelect 
-                            label={`${t('memo.col_company')}*`}
-                            dbField="comp_code"
-                            options={companies.map(c => ({value: c.comp_code, label: c.comp_name}))} 
-                            value={compCode} 
-                            onChange={setCompCode} 
-                        />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <Card title="ข้อมูลหลักการเช่าอุปกรณ์" className="lg:col-span-8 shadow-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <SearchableSelect label="บริษัท *" options={companies.map(c => ({value: c.comp_code, label: c.comp_name}))} value={compCode} onChange={setCompCode} disabled={isSaved} />
+                        <Input label="เลขที่บันทึก *" dbField="memo_no" value={memoNo} onChange={e => setMemoNo(e.target.value)} disabled={isSaved} className="font-bold text-cyan-700" />
+                        <Input label="วันที่บันทึก" dbField="memo_date" type="date" value={memoDate} onChange={e => setMemoDate(e.target.value)} icon={Calendar} />
+                        <Input label="วันที่ครบกำหนด" dbField="due_date" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} icon={Calendar} />
+                        
+                        <div className="md:col-span-2">
+                            <SearchableSelect label="โครงการ *" options={projects.map(p => ({value: p.project_code, label: p.description}))} value={projectCode} onChange={setProjectCode} />
+                        </div>
+                        <SearchableSelect label="ผู้จัดทำ" options={staffList.map(s => ({value: s.staff_code, label: s.staff_name}))} value={staffCode} onChange={setStaffCode} />
+                        <SearchableSelect label="ผู้อนุมัติ" options={staffList.map(s => ({value: s.staff_code, label: s.staff_name}))} value={approveCode} onChange={setApproveCode} />
+                        
+                        <div className="md:col-span-4">
+                            <Input label="หมายเหตุ" dbField="remark" value={remark} onChange={e => setRemark(e.target.value)} />
+                        </div>
                     </div>
-                    <div className="lg:col-span-3">
-                         <div className="flex flex-col space-y-1.5">
-                             <label className="text-sm font-semibold text-slate-600 ml-1">
-                                {t('memo.memo_no')}*
-                                <span className="ml-2 text-[10px] text-rose-400 font-mono tracking-tighter opacity-80 select-none">[memo_no]</span>
-                             </label>
-                             <div className="flex gap-2">
-                                <input 
-                                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/30"
-                                    value={memoNo}
-                                    onChange={(e) => setMemoNo(e.target.value)}
-                                    placeholder={t('memo.memo_no')}
-                                />
-                                <button onClick={() => setShowSearchModal(true)} className="p-2 bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-colors">
-                                    <Search size={18} />
-                                </button>
+                </Card>
+
+                <Card title="ประเภทรายการ" className="lg:col-span-4 shadow-sm">
+                    <div className="space-y-3">
+                        <div className="flex flex-col space-y-2">
+                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">ประเภทคำขอ</label>
+                             <div className="grid grid-cols-2 gap-2">
+                                <button onClick={()=>setIsType('RENTAL')} className={`p-2 rounded-lg border font-bold text-[10px] transition-all ${isType==='RENTAL' ? 'bg-cyan-50 border-cyan-500 text-cyan-700 shadow-sm' : 'bg-white border-slate-200 text-slate-400'}`}>เช่าอุปกรณ์ (Rental)</button>
+                                <button onClick={()=>setIsType('RETURN')} className={`p-2 rounded-lg border font-bold text-[10px] transition-all ${isType==='RETURN' ? 'bg-rose-50 border-rose-500 text-rose-700 shadow-sm' : 'bg-white border-slate-200 text-slate-400'}`}>คืนอุปกรณ์ (Return)</button>
                              </div>
-                         </div>
+                        </div>
                     </div>
-                    <div className="lg:col-span-3">
-                         <Input label={t('memo.date')} dbField="memo_date" type="date" value={memoDate} onChange={e => setMemoDate(e.target.value)} />
-                    </div>
-                    <div className="lg:col-span-3">
-                         <Input label={t('memo_it.due_date')} dbField="due_date" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
-                    </div>
+                </Card>
+            </div>
 
-                    {/* Row 2 */}
-                    <div className="lg:col-span-6">
-                        <SearchableSelect 
-                            label={`${t('memo_it.project')}*`}
-                            dbField="project_code"
-                            options={projects.map(p => ({value: p.project_code, label: p.description}))} 
-                            value={projectCode} 
-                            onChange={setProjectCode} 
-                        />
-                    </div>
-                    <div className="lg:col-span-6">
-                        <SearchableSelect 
-                            label={t('memo.preparer')}
-                            dbField="staff_code"
-                            options={staffList.map(s => ({value: s.staff_code, label: `${s.staff_code} : ${s.staff_name}`}))}
-                            value={staffCode} 
-                            onChange={setStaffCode} 
-                        />
-                    </div>
-
-                    {/* Row 3 */}
-                    <div className="lg:col-span-6">
-                        <SearchableSelect 
-                            label={t('memo.approver')}
-                            dbField="approve_code"
-                            options={staffList.map(s => ({value: s.staff_code, label: `${s.staff_code} : ${s.staff_name}`}))}
-                            value={approveCode} 
-                            onChange={setApproveCode} 
-                        />
-                    </div>
-                    <div className="lg:col-span-6">
-                        <Input label={t('memo.remark')} dbField="remark" value={remark} onChange={e => setRemark(e.target.value)} />
-                    </div>
+            <Card className="shadow-xl border-0 overflow-hidden p-0">
+                <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                    <span className="font-bold text-slate-700 uppercase tracking-widest text-[10px]">รายละเอียดอุปกรณ์ที่ขอเช่า (Rental Items)</span>
+                    <Button size="sm" onClick={addDetailRow} className="bg-cyan-800 px-4 py-1 h-8"><Plus size={14}/> เพิ่มแถว</Button>
                 </div>
-            </Card>
-
-            {/* Details Table */}
-            <div className="bg-white rounded-xl shadow-md border border-slate-200 p-6 min-h-[400px]">
-                <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-4">
-                    <h3 className="font-bold text-lg text-slate-700">{t('lbl.detail_list')}</h3>
-                    <Button onClick={addDetailRow} className="bg-cyan-600 hover:bg-cyan-700 text-white"><Plus size={16}/> {t('btn.add_row')}</Button>
-                </div>
-                
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm min-w-[1000px]">
-                        <thead className="bg-slate-100 text-slate-700 font-semibold">
+                <div className="overflow-x-auto min-h-[300px]">
+                    <table className="w-full text-left border-collapse text-[10px]">
+                        <thead className="bg-slate-800 text-white font-black uppercase tracking-widest">
                             <tr>
-                                <th className="p-3 w-12 text-center rounded-l-lg">{t('lbl.seq')} <span className="text-[10px] text-rose-400 font-mono">[seq]</span></th>
-                                <th className="p-3 w-32">{t('memo_it.owner_code')} <span className="text-[10px] text-rose-400 font-mono">[owner_staff_code]</span></th>
-                                <th className="p-3">{t('memo_it.owner_name')} <span className="text-[10px] text-rose-400 font-mono">[owner_name]</span></th>
-                                <th className="p-3">{t('memo_it.position')} <span className="text-[10px] text-rose-400 font-mono">[position_code]</span></th>
-                                <th className="p-3 w-48">{t('memo_it.product')} <span className="text-[10px] text-rose-400 font-mono">[product_name]</span></th>
-                                <th className="p-3">{t('memo_it.serial')} <span className="text-[10px] text-rose-400 font-mono">[serialno]</span></th>
-                                <th className="p-3 w-32">{t('memo_it.location')} <span className="text-[10px] text-rose-400 font-mono">[location_code]</span></th>
-                                <th className="p-3 w-32">{t('memo_it.stock')} <span className="text-[10px] text-rose-400 font-mono">[stock_code]</span></th>
-                                <th className="p-3 w-24 text-right">{t('memo_it.cost')} <span className="text-[10px] text-rose-400 font-mono">[cost_amount]</span></th>
-                                <th className="p-3">{t('memo.remark')} <span className="text-[10px] text-rose-400 font-mono">[remark]</span></th>
-                                <th className="p-3 w-12 text-center rounded-r-lg">{t('lbl.action')}</th>
+                                <th className="p-2 w-10 text-center">#</th>
+                                <th className="p-2 w-32">รหัสพนักงาน/ชื่อผู้ใช้</th>
+                                <th className="p-2">ชื่ออุปกรณ์/รุ่น</th>
+                                <th className="p-2 w-32">ทะเบียน/S/N</th>
+                                <th className="p-2 w-32">คลัง/สถานที่</th>
+                                <th className="p-2 w-24 text-right">จำนวนเงิน</th>
+                                <th className="p-2 w-12 text-center">จัดการ</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {details.map((row, idx) => (
-                                <tr key={row.id || idx} className="border-b hover:bg-slate-50 transition-colors">
-                                    <td className="p-2 text-center">{idx + 1}</td>
-                                    <td className="p-2">
-                                        <input 
-                                            className="w-full bg-transparent border-b border-transparent focus:border-cyan-500 outline-none"
-                                            value={row.owner_staff_code || ''}
-                                            onChange={e => updateDetail(idx, 'owner_staff_code', e.target.value)}
-                                        />
+                        <tbody className="divide-y divide-slate-100">
+                            {details.map((d, i) => (
+                                <tr key={d.id || i} className="hover:bg-cyan-50/20 transition-colors">
+                                    <td className="p-2 text-center text-slate-400 font-mono">{i+1}</td>
+                                    <td className="p-1">
+                                        <input className="w-full bg-transparent border-b border-transparent focus:border-cyan-500 outline-none p-1 font-bold" value={d.owner_name || ''} onChange={e => updateDetail(i, 'owner_name', e.target.value)} placeholder="ระบุชื่อผู้ใช้" />
                                     </td>
-                                    <td className="p-2">
-                                        <input 
-                                            className="w-full bg-transparent border-b border-transparent focus:border-cyan-500 outline-none"
-                                            value={row.owner_name || ''}
-                                            onChange={e => updateDetail(idx, 'owner_name', e.target.value)}
-                                        />
+                                    <td className="p-1">
+                                        <input className="w-full bg-transparent border-b border-transparent focus:border-cyan-500 outline-none p-1" value={d.product_name || ''} onChange={e => updateDetail(i, 'product_name', e.target.value)} placeholder="ชื่ออุปกรณ์" />
                                     </td>
-                                    <td className="p-2">
-                                        <input 
-                                            className="w-full bg-transparent border-b border-transparent focus:border-cyan-500 outline-none"
-                                            value={row.position_code || ''}
-                                            onChange={e => updateDetail(idx, 'position_code', e.target.value)}
-                                        />
+                                    <td className="p-1">
+                                        <input className="w-full bg-transparent border-b border-transparent focus:border-cyan-500 outline-none p-1 font-mono" value={d.serialno || ''} onChange={e => updateDetail(i, 'serialno', e.target.value)} placeholder="S/N" />
                                     </td>
-                                    <td className="p-2">
-                                        <input 
-                                            className="w-full bg-transparent border-b border-transparent focus:border-cyan-500 outline-none"
-                                            value={row.product_name || ''}
-                                            onChange={e => updateDetail(idx, 'product_name', e.target.value)}
-                                        />
-                                    </td>
-                                    <td className="p-2">
-                                        <input 
-                                            className="w-full bg-transparent border-b border-transparent focus:border-cyan-500 outline-none"
-                                            value={row.serialno || ''}
-                                            onChange={e => updateDetail(idx, 'serialno', e.target.value)}
-                                        />
-                                    </td>
-                                    <td className="p-2">
-                                        <select 
-                                            className="w-full bg-transparent outline-none"
-                                            value={row.location_code || ''}
-                                            onChange={e => updateDetail(idx, 'location_code', e.target.value)}
-                                        >
-                                            <option value=""></option>
+                                    <td className="p-1">
+                                        <select className="w-full bg-transparent outline-none p-1" value={d.location_code || ''} onChange={e => updateDetail(i, 'location_code', e.target.value)}>
+                                            <option value="">--เลือก--</option>
                                             {locations.map(l => <option key={l.location_code} value={l.location_code}>{l.description}</option>)}
                                         </select>
                                     </td>
-                                    <td className="p-2">
-                                        <select 
-                                            className="w-full bg-transparent outline-none"
-                                            value={row.stock_code || ''}
-                                            onChange={e => updateDetail(idx, 'stock_code', e.target.value)}
-                                        >
-                                            <option value=""></option>
-                                            {stocks.filter(s => !row.location_code || s.location_code === row.location_code)
-                                                   .map(s => <option key={s.stock_code} value={s.stock_code}>{s.description}</option>)}
-                                        </select>
+                                    <td className="p-1">
+                                        <input type="number" className="w-full bg-transparent border-b border-transparent focus:border-cyan-500 outline-none p-1 text-right font-bold" value={d.cost_amount || 0} onChange={e => updateDetail(i, 'cost_amount', parseFloat(e.target.value))} />
                                     </td>
-                                    <td className="p-2">
-                                        <input 
-                                            type="number"
-                                            className="w-full bg-transparent border-b border-transparent focus:border-cyan-500 outline-none text-right"
-                                            value={row.cost_amount || 0}
-                                            onChange={e => updateDetail(idx, 'cost_amount', parseFloat(e.target.value))}
-                                        />
-                                    </td>
-                                    <td className="p-2">
-                                        <input 
-                                            className="w-full bg-transparent border-b border-transparent focus:border-cyan-500 outline-none"
-                                            value={row.remark || ''}
-                                            onChange={e => updateDetail(idx, 'remark', e.target.value)}
-                                        />
-                                    </td>
-                                    <td className="p-2 text-center">
-                                        <button onClick={() => removeDetailRow(idx)} className="text-rose-500 hover:text-rose-700 p-1 rounded-full"><Trash2 size={16}/></button>
+                                    <td className="p-1 text-center">
+                                        <button onClick={() => setDetails(details.filter((_, idx) => idx !== i))} className="p-1 text-rose-500 hover:bg-rose-50 rounded"><Trash2 size={14}/></button>
                                     </td>
                                 </tr>
                             ))}
-                            {details.length === 0 && <tr><td colSpan={11} className="p-8 text-center text-slate-400 italic">{t('msg.no_data')}</td></tr>}
+                            {details.length === 0 && <tr><td colSpan={7} className="p-20 text-center text-slate-300 font-bold italic">ยังไม่มีรายการอุปกรณ์</td></tr>}
                         </tbody>
                     </table>
                 </div>
-            </div>
-
-            {/* Search Modal */}
-            {showSearchModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-                    <div className="bg-white w-full max-w-5xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in duration-200">
-                        <div className="bg-primary-900 text-white p-5 flex justify-between items-center shadow-md">
-                            <h2 className="text-xl font-bold flex items-center gap-2 tracking-wide"><Search size={24}/> {t('memo.search_title')}</h2>
-                            <button onClick={() => setShowSearchModal(false)} className="text-primary-200 hover:text-white hover:bg-primary-800 p-2 rounded-full transition-all"><X size={24}/></button>
-                        </div>
-                        
-                        <div className="p-6 border-b border-slate-200 bg-slate-50/50">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                                <SearchableSelect 
-                                    label={t('memo.col_company')}
-                                    options={companies.map(c => ({value: c.comp_code, label: c.comp_name}))} 
-                                    value={searchCriteria.comp_code} 
-                                    onChange={v => setSearchCriteria({...searchCriteria, comp_code: v})} 
-                                />
-                                <Input 
-                                    label={t('memo.memo_no')}
-                                    value={searchCriteria.memo_no} 
-                                    onChange={e => setSearchCriteria({...searchCriteria, memo_no: e.target.value})}
-                                />
-                                <Input 
-                                    label={t('memo.preparer')}
-                                    value={searchCriteria.staff_code} 
-                                    onChange={e => setSearchCriteria({...searchCriteria, staff_code: e.target.value})}
-                                />
-                                <Input 
-                                    label={t('memo_it.project')}
-                                    value={searchCriteria.project_code} 
-                                    onChange={e => setSearchCriteria({...searchCriteria, project_code: e.target.value})}
-                                />
-                            </div>
-                            <div className="flex justify-end gap-3 pt-2">
-                                <Button variant="secondary" onClick={() => setSearchCriteria({comp_code: companies[0]?.comp_code||'', memo_no:'', staff_code:'', project_code:''})} className="px-6">{t('btn.reset')}</Button>
-                                <Button onClick={handlePopupSearch} className="bg-primary-600 hover:bg-primary-700 text-white px-6 shadow-md"><Search size={18}/> {t('btn.search')}</Button>
-                            </div>
-                        </div>
-
-                        <div className="flex-1 overflow-auto p-0">
-                            <table className="w-full text-sm text-left border-collapse">
-                                <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0 shadow-sm z-10">
-                                    <tr>
-                                        <th className="p-4 border-b">{t('memo.col_company')}</th>
-                                        <th className="p-4 border-b">{t('memo.memo_no')}</th>
-                                        <th className="p-4 border-b">{t('memo.date')}</th>
-                                        <th className="p-4 border-b">{t('memo.preparer')}</th>
-                                        <th className="p-4 border-b">{t('memo_it.project')}</th>
-                                        <th className="p-4 border-b text-center">{t('memo.search_status')}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {searchResults.length === 0 ? (
-                                        <tr><td colSpan={6} className="p-12 text-center text-slate-400 italic bg-white">{t('msg.no_data')}</td></tr>
-                                    ) : (
-                                        searchResults.map((item, idx) => (
-                                            <tr 
-                                                key={idx} 
-                                                className="border-b hover:bg-cyan-50 cursor-pointer transition-colors odd:bg-white even:bg-slate-50/30"
-                                                onClick={() => handleSelectSearchResult(item)}
-                                            >
-                                                <td className="p-4 text-slate-600">{item.comp_code}</td>
-                                                <td className="p-4 font-bold text-primary-700">{item.memo_no}</td>
-                                                <td className="p-4 text-slate-600">{new Date(item.memo_date).toLocaleDateString()}</td>
-                                                <td className="p-4 text-slate-800">{item.staff_name || item.staff_code}</td>
-                                                <td className="p-4 text-slate-600">{item.project_code}</td>
-                                                <td className="p-4 text-center">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${item.is_status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                                                        {item.is_status}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            )}
+            </Card>
         </div>
     );
 };

@@ -4,10 +4,13 @@ import { Card } from '../components/ui';
 import { api } from '../services/apiService';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Search, RefreshCw, AlertCircle, Warehouse, Database } from 'lucide-react';
+// Import type from types.ts
+import { StockBalanceItem } from '../types';
 
 export const Inventory = () => {
   const { t } = useLanguage();
-  const [stockBalance, setStockBalance] = useState<{name: string, code: string, qty: number, type: string}[]>([]);
+  // Use StockBalanceItem type to align with API response and types.ts
+  const [stockBalance, setStockBalance] = useState<StockBalanceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -30,7 +33,7 @@ export const Inventory = () => {
   const filteredData = useMemo(() => {
     return stockBalance.filter(s => 
       s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      s.code.toLowerCase().includes(searchTerm.toLowerCase())
+      (s.code || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [stockBalance, searchTerm]);
 
@@ -78,7 +81,7 @@ export const Inventory = () => {
                   ) : (
                       filteredData.map((s) => (
                         <tr key={s.code} className="group hover:bg-slate-50/50 transition-all duration-150">
-                          <td className="p-4 font-mono font-bold text-primary-700 align-middle"><div className="bg-primary-50 px-2 py-1 rounded-md border border-primary-100 inline-block">{s.code}</div></td>
+                          <td className="p-4 font-mono font-bold text-primary-700 align-middle"><div className="bg-primary-50 px-2 py-1 rounded-md border border-primary-100 inline-block">{s.code || '-'}</div></td>
                           <td className="p-4 align-middle font-semibold text-slate-700 group-hover:text-primary-900 transition-colors">{s.name}</td>
                           <td className="p-4 text-center align-middle"><span className="px-2.5 py-1 rounded-full bg-slate-100 text-[9px] font-black text-slate-500 uppercase border border-slate-200">{s.type}</span></td>
                           <td className="p-4 text-right align-middle"><div className={`text-lg font-black tabular-nums tracking-tighter ${s.qty < 10 ? 'text-rose-600' : 'text-emerald-600'}`}>{s.qty.toLocaleString()}</div></td>

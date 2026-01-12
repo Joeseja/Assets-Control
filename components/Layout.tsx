@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, LogOut, Building2, Languages, Database, 
-  ChevronRight, Plus, Minus, Folder, File, Search, RefreshCw, AlertCircle, HardDrive
+  Plus, Minus, Folder, File, Search, RefreshCw, HardDrive, User as UserIcon
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { api } from '../services/apiService';
@@ -63,26 +63,32 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate
   const [loadingMenus, setLoadingMenus] = useState(true);
   const { t, language, setLanguage } = useLanguage();
 
+  const loadMenus = async () => {
+      if (!username) return;
+      setLoadingMenus(true);
+      try {
+          const menus = await api.getUserMenus(username);
+          if (menus && menus.length > 0) {
+              setUserMenus(menus);
+              const initialSysExpand: Record<string, boolean> = {};
+              const initialGrpExpand: Record<string, boolean> = {};
+              menus.forEach(m => { 
+                if (m.sid) initialSysExpand[String(m.sid)] = true; 
+                if (m.pgid) initialGrpExpand[String(m.pgid)] = true;
+              });
+              setExpandedSystems(initialSysExpand);
+              setExpandedGroups(initialGrpExpand);
+          } else {
+              setUserMenus([]);
+          }
+      } catch(e) { 
+          console.error("Menu Fetch Error:", e); 
+          setUserMenus([]);
+      }
+      finally { setLoadingMenus(false); }
+  };
+
   useEffect(() => {
-     const loadMenus = async () => {
-         if (!username) return;
-         setLoadingMenus(true);
-         try {
-             const menus = await api.getUserMenus(username);
-             if (menus && menus.length > 0) {
-                 setUserMenus(menus);
-                 const initialSysExpand: Record<string, boolean> = {};
-                 const initialGrpExpand: Record<string, boolean> = {};
-                 menus.forEach(m => { 
-                   if (m.sid) initialSysExpand[String(m.sid)] = true; 
-                   if (m.pgid) initialGrpExpand[String(m.pgid)] = true;
-                 });
-                 setExpandedSystems(initialSysExpand);
-                 setExpandedGroups(initialGrpExpand);
-             }
-         } catch(e) { console.error("Menu Fetch Error:", e); }
-         finally { setLoadingMenus(false); }
-     };
      loadMenus();
   }, [username]);
 
@@ -110,7 +116,18 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate
            <button onClick={() => onNavigate('dashboard', 'Dashboard')} className={`w-full flex items-center space-x-2 py-1.5 px-2 rounded hover:bg-white/5 mb-2 transition-all ${activePage === 'dashboard' ? 'text-emerald-400' : 'text-primary-200'}`}>
              <LayoutDashboard size={14} />{isSidebarOpen && <span className="text-[12px] font-bold">{t('menu.dashboard')}</span>}
            </button>
-           {groupedMenus.map(sys => (
+           
+           {loadingMenus ? (
+               <div className="py-10 text-center opacity-40">
+                   <RefreshCw className="animate-spin mx-auto mb-2" size={16} />
+                   {isSidebarOpen && <span className="text-[10px] font-bold uppercase tracking-widest">Loading...</span>}
+               </div>
+           ) : groupedMenus.length === 0 ? (
+               <div className="py-10 px-4 text-center opacity-40">
+                   <p className="text-[10px] font-bold uppercase leading-relaxed">{isSidebarOpen ? 'No Menu Permissions Found' : 'N/A'}</p>
+                   <button onClick={loadMenus} className="mt-2 p-2 hover:bg-white/10 rounded-full transition-colors"><RefreshCw size={14}/></button>
+               </div>
+           ) : groupedMenus.map(sys => (
                <div key={sys.sid} className="mb-2">
                    {isSidebarOpen && <button onClick={() => setExpandedSystems(p => ({...p, [sys.sid]: !p[sys.sid]}))} className="w-full flex items-center space-x-2 px-1 py-1 group hover:bg-white/5 rounded"><div className="text-primary-600 group-hover:text-primary-400">{expandedSystems[sys.sid] ? <Minus size={10} strokeWidth={4} /> : <Plus size={10} strokeWidth={4} />}</div><span className="text-[10px] font-black text-primary-500 uppercase tracking-widest truncate">{language === 'en' ? (sys.sname_2 || sys.sname) : sys.sname}</span></button>}
                    {(expandedSystems[sys.sid] || !isSidebarOpen) && (
@@ -139,7 +156,22 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate
              <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-slate-400 hover:text-primary-600 transition-colors"><Search size={18} /></button>
              <h2 className="text-sm font-black text-slate-700 tracking-tight uppercase">{t('app.title')}</h2>
            </div>
-           <div className="flex items-center space-x-3">
+           
+           <div className="flex items-center space-x-4">
+              {/* User Identity at Header (TOP) */}
+              <div className="flex items-center gap-2 pl-4 border-l border-slate-100">
+                  <div className="w-8 h-8 rounded-full bg-primary-800 flex items-center justify-center text-white font-black text-[10px] border border-primary-900 shadow-md transform transition-transform hover:scale-110">
+                     {username.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="hidden sm:flex flex-col">
+                     <span className="text-[11px] font-black text-slate-800 leading-none">{username}</span>
+                     <div className="flex items-center gap-1 mt-0.5">
+                        <div className="w-1 h-1 rounded-full bg-emerald-500"></div>
+                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">Authorized Access</span>
+                     </div>
+                  </div>
+              </div>
+
               <div className="hidden lg:flex items-center gap-2">
                 {connectedServer && (
                   <div className="flex items-center px-3 py-1 bg-primary-50 text-primary-700 rounded-full border border-primary-100 text-[10px] font-bold gap-2">

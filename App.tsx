@@ -14,47 +14,66 @@ import { MasterProduct } from './pages/MasterProduct';
 import { MasterProject } from './pages/MasterProject'; 
 import { MasterSupplier } from './pages/MasterSupplier';
 import { MasterStaff } from './pages/MasterStaff';
+import { MasterDeedUtility } from './pages/MasterDeedUtility';
+import { MasterDeedPayment } from './pages/MasterDeedPayment';
+import { MasterDeedBookYear } from './pages/MasterDeedBookYear';
 import { MemoBudgetRequest } from './pages/MemoBudgetRequest';
 import { MemoItRentalRequest } from './pages/MemoItRentalRequest';
 import { ReceiveAssetConstruction } from './pages/ReceiveAssetConstruction'; 
+import { SalesAssetConstruction } from './pages/SalesAssetConstruction';
 import { WorkforcePlanning } from './pages/WorkforcePlanning';
 import { WorkforceRequest } from './pages/WorkforceRequest';
 import { WorkforceResignation } from './pages/WorkforceResignation';
 import { SystemAdmin } from './pages/SystemAdmin';
 import { Inventory } from './pages/Inventory';
 import { AssetCheckPlan } from './pages/AssetCheckPlan';
-import { api } from './services/apiService';
-import { Wifi, WifiOff, UploadCloud, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 // --- Page Registry for Dynamic Loading ---
-// We map database "sheet" values to React Components.
 const PAGE_REGISTRY: Record<string, React.FC<any>> = {
   'dashboard': Dashboard,
   'mastercompany': MasterCompany,
+  'ms_company': MasterCompany,
   'masterproductgroup': MasterProductGroup,
+  'ms_product_group': MasterProductGroup,
   'masterproducttype': MasterProductType,
+  'ms_product_type': MasterProductType,
   'masterproductsubtype': MasterProductSubtype,
+  'ms_product_subtype': MasterProductSubtype,
   'masterproject': MasterProject,
+  'ms_project': MasterProject,
   'masterproduct': MasterProduct,
+  'ms_product': MasterProduct,
   'mastersupplier': MasterSupplier,
+  'ms_supplier': MasterSupplier,
   'masterstaff': MasterStaff,
+  'ms_staff': MasterStaff,
+  'masterdeedutility': MasterDeedUtility,
+  'ms_deed_utility': MasterDeedUtility,
+  'masterdeedpayment': MasterDeedPayment,
+  'ms_deed_payment': MasterDeedPayment,
+  'masterdeedbookyear': MasterDeedBookYear,
+  'deed_book_year': MasterDeedBookYear,
   'receiving': Receiving,
+  'w_receiving': Receiving,
+  'receivec': Receiving,
   'sales': Sales,
+  'w_sales': Sales,
+  'brwc': Sales,
   'memobudgetrequest': MemoBudgetRequest,
+  'memo_budget': MemoBudgetRequest,
   'memoitrentalrequest': MemoItRentalRequest,
+  'memo_it': MemoItRentalRequest,
   'receiveassetconstruction': ReceiveAssetConstruction,
+  'receiveca': ReceiveAssetConstruction,
+  'salesassetconstruction': SalesAssetConstruction,
+  'brwca': SalesAssetConstruction,
   'workforceplanning': WorkforcePlanning,
   'workforcerequest': WorkforceRequest,
   'workforceresignation': WorkforceResignation,
   'systemadmin': SystemAdmin,
   'inventory': Inventory,
-  'assetcheckplan': AssetCheckPlan,
-  // Common legacy or alternate naming patterns from Database
-  'ms_company': MasterCompany,
-  'ms_project': MasterProject,
-  'ms_product': MasterProduct,
-  'w_receiving': Receiving,
-  'w_sales': Sales
+  'assetcheckplan': AssetCheckPlan
 };
 
 const parseParams = (paramStr: string | undefined) => {
@@ -71,7 +90,7 @@ const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
   const [currentServer, setCurrentServer] = useState('192.168.0.200'); 
-  const [currentDatabase, setCurrentDatabase] = useState('SenaAI_AssetsDB'); 
+  const [currentDatabase, setCurrentDatabase] = useState('SenaAssetsDB'); 
   
   const [currentRoute, setCurrentRoute] = useState({ 
       pid: 'dashboard', 
@@ -81,21 +100,6 @@ const App = () => {
   
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [previewData, setPreviewData] = useState<{id: string, type: 'RECEIVE' | 'SALES' } | null>(null);
-
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   const handleLogin = (user: string, server: string, database: string) => {
     setUsername(user);
@@ -115,11 +119,7 @@ const App = () => {
       let targetSheet = sheet || 'Dashboard';
       if (pid === 'dashboard') targetSheet = 'Dashboard';
       
-      setCurrentRoute({ 
-          pid, 
-          sheet: targetSheet, 
-          param: param || '' 
-      });
+      setCurrentRoute({ pid, sheet: targetSheet, param: param || '' });
   };
 
   const handlePreview = (id: string, type: 'RECEIVE' | 'SALES') => {
@@ -133,14 +133,8 @@ const App = () => {
     }
 
     const rawSheetName = currentRoute.sheet || 'Dashboard';
-    
-    // Robust cleaning: remove extension-like suffixes, trailing dots, and lowercase everything
-    const cleanSheet = rawSheetName
-      .split('.')[0] // Take only the part before the first dot if it's like "Receiving.php"
-      .toLowerCase()
-      .trim();
-    
-    const Component = PAGE_REGISTRY[cleanSheet];
+    const cleanSheet = rawSheetName.split('.')[0].toLowerCase().trim();
+    const Component = PAGE_REGISTRY[cleanSheet] || PAGE_REGISTRY[currentRoute.pid.toLowerCase()];
     
     if (Component) {
         const props = parseParams(currentRoute.param);
@@ -155,7 +149,7 @@ const App = () => {
                 </div>
                 <h3 className="text-lg font-black text-slate-800 mb-2">Program Not Linked</h3>
                 <p className="text-xs text-center leading-relaxed mb-6">
-                    Sheet <b>"{rawSheetName}"</b> (Cleaned: "{cleanSheet}") is not mapped to a component.
+                    Sheet <b>"{rawSheetName}"</b> is not mapped to a component.
                 </p>
                 <button onClick={() => handleNavigate('dashboard', 'Dashboard')} className="w-full py-3 bg-primary-800 text-white rounded-xl font-bold">
                    Return to Dashboard
@@ -165,9 +159,7 @@ const App = () => {
     );
   };
   
-  if (!isLoggedIn) {
-    return <Login onLogin={handleLogin} />;
-  }
+  if (!isLoggedIn) return <Login onLogin={handleLogin} />;
 
   return (
     <Layout 

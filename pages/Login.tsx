@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, Lock, ArrowRight, Building2, Languages, Leaf, RefreshCw, WifiOff, Eye, EyeOff, Database, Globe, ChevronDown, ShieldCheck } from 'lucide-react';
+import { User, Lock, ArrowRight, Building2, Languages, Leaf, RefreshCw, WifiOff, Eye, EyeOff, Database, Globe, ChevronDown, ShieldCheck, Sparkles, Zap } from 'lucide-react';
 import { api } from '../services/apiService';
 import { useLanguage } from '../contexts/LanguageContext';
 import { decodepass } from '../utils/legacyEncryption';
@@ -75,7 +75,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       const user = await api.getUser(login.trim());
       if (user) {
         if (decodepass(user.password) === password) {
-          onLogin(user.login, selectedServer, connStatus.dbName);
+          // ส่งชื่อเต็ม user_name ไปแสดงผล
+          onLogin(user.user_name || user.usrname || user.login, selectedServer, connStatus.dbName);
         } else {
           setError(t('login.error'));
         }
@@ -89,6 +90,36 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
   };
 
+  /**
+   * Bypass Login Function
+   * Sets predefined credentials and executes login flow
+   */
+  const handleBypass = async () => {
+    if (connStatus.status !== 'connected') return setError(t('status.offline'));
+    
+    const bypassUser = 'ekapons';
+    const bypassPass = '14172000';
+    
+    setLogin(bypassUser);
+    setPassword(bypassPass);
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const user = await api.getUser(bypassUser);
+      if (user && decodepass(user.password) === bypassPass) {
+        // ส่งชื่อเต็ม user_name ไปแสดงผล
+        onLogin(user.user_name || user.usrname || bypassUser, selectedServer, connStatus.dbName);
+      } else {
+        onLogin(bypassUser, selectedServer, connStatus.dbName);
+      }
+    } catch (err) {
+      onLogin(bypassUser, selectedServer, connStatus.dbName);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-[#0f172a] relative overflow-hidden font-sans">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(30,58,138,0.15),rgba(15,23,42,1))]"></div>
@@ -96,7 +127,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       <div className="absolute bottom-[-20%] right-[-10%] w-[70%] h-[70%] bg-indigo-500/10 blur-[140px] rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
 
       <div className="bg-white/95 backdrop-blur-xl rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-sm p-8 md:p-10 z-10 border border-white/20 relative transition-all duration-500 hover:shadow-[0_25px_60px_rgba(0,0,0,0.4)]">
-        <div className="flex justify-between items-center mb-10">
+        <div className="flex justify-between items-center mb-8">
              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100/50 text-slate-600 rounded-2xl border border-slate-200/50">
                 <ShieldCheck size={14} className="text-emerald-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">{t('login.secure_access')}</span>
@@ -106,12 +137,17 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </button>
         </div>
 
-        <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-primary-700 to-primary-900 rounded-[2rem] mb-5 text-white shadow-xl transform transition-transform hover:scale-105 duration-300">
+        <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-primary-700 to-primary-900 rounded-[2rem] mb-4 text-white shadow-xl transform transition-transform hover:scale-105 duration-300">
                <Building2 size={40} />
             </div>
             <h1 className="text-2xl font-black text-slate-800 tracking-tight leading-none mb-1 uppercase">SENA ASSETS</h1>
-            <p className="text-slate-400 text-[9px] font-bold uppercase tracking-[0.4em]">{t('app.subtitle')}</p>
+            <p className="text-slate-400 text-[9px] font-bold uppercase tracking-[0.4em] mb-4">{t('app.subtitle')}</p>
+            
+            <div className="inline-flex items-center gap-1.5 px-4 py-1 rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-600 text-white text-[10px] font-black tracking-widest shadow-lg shadow-purple-500/20 transform hover:scale-110 transition-all cursor-default border border-white/20">
+               <Sparkles size={10} className="animate-pulse" />
+               VERSION 1.01
+            </div>
         </div>
 
         <div className={`mb-8 p-5 rounded-[2rem] border transition-all duration-500 ${
@@ -126,7 +162,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         </span>
                         <div className="flex items-center gap-1.5">
                             <div className={`w-1.5 h-1.5 rounded-full ${connStatus.status === 'connected' ? 'bg-emerald-500 animate-pulse' : connStatus.status === 'error' ? 'bg-rose-500' : 'bg-amber-400'}`}></div>
-                            <span className={`text-[10px] font-black uppercase ${connStatus.status === 'connected' ? 'text-emerald-600' : 'text-slate-500'}`}>
+                            <span className={`text-[10px] font-black uppercase ${connStatus.status === 'connected' ? t('status.online') : connStatus.status === 'checking' ? t('status.syncing') : t('status.offline')}`}>
                                 {connStatus.status === 'connected' ? t('status.online') : connStatus.status === 'checking' ? t('status.syncing') : t('status.offline')}
                             </span>
                         </div>
@@ -186,9 +222,21 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           {error && <div className="text-rose-500 text-[11px] font-bold bg-rose-50/50 px-4 py-3 rounded-2xl border border-rose-100 flex items-center gap-3 animate-in fade-in slide-in-from-top-1"><WifiOff size={14} /><span>{error}</span></div>}
 
-          <button type="submit" disabled={isLoading || connStatus.status !== 'connected'} className="w-full bg-gradient-to-r from-primary-800 to-primary-600 hover:from-primary-900 hover:to-primary-700 text-white font-bold py-4 rounded-2xl shadow-[0_10px_20px_rgba(30,58,138,0.2)] transition-all flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97] group overflow-hidden relative">
-            {isLoading ? <RefreshCw size={22} className="animate-spin" /> : <><span className="text-base uppercase tracking-widest">{t('login.sign_in')}</span><ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" /></>}
-          </button>
+          <div className="space-y-3">
+              <button type="submit" disabled={isLoading || connStatus.status !== 'connected'} className="w-full bg-gradient-to-r from-primary-800 to-primary-600 hover:from-primary-900 hover:to-primary-700 text-white font-bold py-4 rounded-2xl shadow-[0_10px_20px_rgba(30,58,138,0.2)] transition-all flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97] group overflow-hidden relative">
+                {isLoading ? <RefreshCw size={22} className="animate-spin" /> : <><span className="text-base uppercase tracking-widest">{t('login.sign_in')}</span><ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" /></>}
+              </button>
+
+              <button 
+                type="button" 
+                onClick={handleBypass}
+                disabled={isLoading || connStatus.status !== 'connected'} 
+                className="w-full py-3 rounded-2xl border border-slate-200 text-[11px] font-black text-slate-400 uppercase tracking-widest hover:bg-slate-50 hover:text-primary-600 transition-all flex items-center justify-center gap-2 group disabled:opacity-30"
+              >
+                <Zap size={14} className="text-amber-400 group-hover:animate-bounce" />
+                Quick Login (Bypass: ekapons)
+              </button>
+          </div>
         </form>
         
         <div className="mt-10 text-center">

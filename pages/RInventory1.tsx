@@ -36,8 +36,9 @@ export const Inventory = () => {
              });
 
              // Outbound
+             // Fix: Property 'doc_no' does not exist on type 'BrwcHead' or 'BrwcDetail'. Use 'brw_no'.
              sDetails.forEach(d => {
-                 const h = sHeads?.find(x => x.doc_no === d.doc_no);
+                 const h = sHeads?.find(x => x.brw_no === d.brw_no);
                  if (h && h.is_status === 'ACTIVE') {
                     const cur = productMap.get(d.product_code || '') || 0;
                     productMap.set(d.product_code || '', cur - d.qty);

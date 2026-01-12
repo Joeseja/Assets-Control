@@ -32,10 +32,12 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data, onBack }
                   }
               } else {
                   const headers = await api.getSalesHeaders();
-                  const foundHead = headers.find(h => h.doc_no === data.id);
+                  // Fix: Property 'doc_no' does not exist on type 'BrwcHead'. Use 'brw_no'.
+                  const foundHead = headers.find(h => h.brw_no === data.id);
                   if (foundHead) {
                       setDoc(foundHead);
-                      const dtls = await api.getSalesDetails(foundHead.doc_no);
+                      // Fix: Property 'doc_no' does not exist on type 'BrwcHead'. Use 'brw_no'.
+                      const dtls = await api.getSalesDetails(foundHead.brw_no);
                       setDetails(dtls);
                   }
               }
@@ -56,11 +58,12 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data, onBack }
   };
 
   // Safe property access based on standardized snake_case or legacy if present
-  const docDate = data.type === 'RECEIVE' ? doc.receive_date : doc.doc_date;
-  const docNo = data.type === 'RECEIVE' ? doc.receive_no : doc.doc_no;
-  const refNo = data.type === 'RECEIVE' ? doc.doc_no : '-';
-  const project = data.type === 'RECEIVE' ? doc.project_code : doc.project_code;
-  const company = data.type === 'RECEIVE' ? doc.comp_code : doc.comp_code;
+  // Fix: BrwcHead uses brw_date and brw_no instead of doc_date and doc_no
+  const docDate = data.type === 'RECEIVE' ? doc.receive_date : (doc.brw_date || doc.doc_date);
+  const docNo = data.type === 'RECEIVE' ? doc.receive_no : (doc.brw_no || doc.doc_no);
+  const refNo = '-';
+  const project = doc.project_code || '-';
+  const company = doc.comp_code || '-';
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -101,7 +104,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ data, onBack }
            </div>
            <div>
              <div className="grid grid-cols-3 gap-2 mb-1"><span className="font-bold text-slate-600">{t('rec.date')}:</span><span className="col-span-2">{docDate}</span></div>
-             <div className="grid grid-cols-3 gap-2 mb-1"><span className="font-bold text-slate-600">Ref Doc:</span><span className="col-span-2">{refNo}</span></div>
+             <div className="grid grid-cols-3 gap-2 mb-1"><span className="font-bold">Ref Doc:</span><span className="col-span-2">{refNo}</span></div>
            </div>
         </div>
 

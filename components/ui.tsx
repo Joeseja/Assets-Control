@@ -58,11 +58,13 @@ export const SearchableSelect: React.FC<{
 }> = ({ label, dbField, options, value, onChange, placeholder, disabled, className = '', freeText = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
-    const selected = options.find((o) => o.value === value);
+    const selected = options.find((o) => String(o.value || '').trim() === String(value || '').trim());
     setInputValue(selected ? selected.label : (freeText ? value : ''));
+    setIsTyping(false);
   }, [value, options, freeText]);
 
   useEffect(() => {
@@ -73,10 +75,10 @@ export const SearchableSelect: React.FC<{
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredOptions = options.filter(o => 
+  const filteredOptions = isTyping ? options.filter(o => 
     String(o.label || '').toLowerCase().includes(String(inputValue || '').toLowerCase()) ||
     String(o.value || '').toLowerCase().includes(String(inputValue || '').toLowerCase())
-  );
+  ) : options;
 
   return (
     <div className="flex flex-col space-y-1.5 relative" ref={containerRef}>
@@ -84,21 +86,43 @@ export const SearchableSelect: React.FC<{
       <div className="relative">
           <input
             type="text" className={`w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500/30 text-slate-800 ${disabled ? 'bg-slate-50 cursor-not-allowed' : 'bg-white'} ${className}`}
-            value={inputValue} onChange={e => { setInputValue(e.target.value); setIsOpen(true); if(freeText) onChange(e.target.value); }}
-            onFocus={() => !disabled && setIsOpen(true)} placeholder={placeholder || "Search..."} disabled={disabled}
+            value={inputValue} 
+            onChange={e => { 
+              setInputValue(e.target.value); 
+              setIsTyping(true);
+              setIsOpen(true); 
+              if(freeText) onChange(e.target.value); 
+            }}
+            onFocus={() => {
+              if(!disabled) {
+                setIsOpen(true);
+                setIsTyping(false);
+              }
+            }} 
+            placeholder={placeholder || "Search..."} 
+            disabled={disabled}
+            autoComplete="off"
           />
           <ChevronDown className={`absolute right-3 top-2.5 text-slate-400 pointer-events-none transition-transform ${isOpen ? 'rotate-180' : ''}`} size={16} />
       </div>
       {isOpen && !disabled && (
-        <div className="absolute z-[9999] top-[calc(100%+4px)] left-0 w-full bg-white border border-slate-200 rounded-lg shadow-2xl max-h-60 overflow-y-auto ring-1 ring-black/5">
+        <div className="absolute z-[9999] top-[calc(100%+4px)] left-0 w-full bg-white border border-slate-200 rounded-lg shadow-2xl max-h-96 overflow-y-auto ring-1 ring-black/5 custom-scrollbar">
             {filteredOptions.length > 0 ? filteredOptions.map((opt) => (
               <div 
-                key={opt.value} className={`px-4 py-2 text-sm cursor-pointer hover:bg-primary-50 transition-colors ${opt.value === value ? 'bg-primary-100 text-primary-900 font-bold' : 'text-slate-700'}`}
-                onClick={() => { onChange(opt.value); setInputValue(opt.label); setIsOpen(false); }}
+                key={opt.value} className={`px-4 py-2.5 text-xs cursor-pointer hover:bg-primary-50 transition-colors border-b border-slate-50 last:border-0 ${String(opt.value || '').trim() === String(value || '').trim() ? 'bg-primary-100 text-primary-900 font-bold' : 'text-slate-700'}`}
+                onClick={() => { 
+                  onChange(opt.value); 
+                  setInputValue(opt.label); 
+                  setIsOpen(false); 
+                  setIsTyping(false);
+                }}
               >
-                {opt.label} <span className="text-[10px] text-slate-400 ml-1">({opt.value})</span>
+                <div className="flex justify-between items-center">
+                    <span className="truncate">{opt.label}</span>
+                    <span className="text-[10px] text-slate-400 font-mono bg-slate-100 px-1.5 rounded ml-2 shrink-0">{opt.value}</span>
+                </div>
               </div>
-            )) : <div className="px-4 py-2 text-sm text-slate-400 italic">No data found</div>}
+            )) : <div className="px-4 py-4 text-xs text-slate-400 italic text-center">ไม่พบข้อมูลที่ตรงเงื่อนไข</div>}
         </div>
       )}
     </div>
@@ -116,7 +140,6 @@ export const Badge: React.FC<{ children: React.ReactNode, type?: 'success' | 'wa
   return <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border uppercase tracking-wider ${styles[type]}`}>{children}</span>;
 }
 
-// Optimized Global Pagination Component
 export const Pagination: React.FC<{
   currentPage: number;
   totalItems: number;

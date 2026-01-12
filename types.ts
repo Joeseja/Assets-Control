@@ -1,5 +1,247 @@
 
-// Types for Assets Management System
+export interface MsDeedUtility {
+  utility_code: string;
+  description: string;
+  level_no: number;
+  is_status: string;
+  record_id?: number;
+  record_date?: string;
+  update_id?: string;
+  update_date?: string;
+}
+
+export interface MsDeedPayment {
+  year_no: number;
+  utility_code: string;
+  seq: number;
+  begin_date?: string;
+  end_date?: string;
+  sland_amount: number;
+  eland_amount: number;
+  tax_rate_percent: number;
+  tax_paid_amount: number;
+  is_status: string;
+  record_id?: number;
+  record_date?: string;
+  update_id?: string;
+  update_date?: string;
+  utility_description?: string; // UI usage
+}
+
+export interface DeedBookYear {
+  year_no: number;
+  book_code: string;
+  project_code: string;
+  deed_id?: string;
+  tower_no?: string;
+  floor_no?: string;
+  plan_no?: string;
+  home_no?: string;
+  land_no?: string;
+  explore_no?: string;
+  deed_code?: string;
+  sales_status_code?: string;
+  construct_date?: string;
+  allocate_no?: string;
+  deed_sales_qty?: number;
+  deed_qty?: number;
+  balcony_qty?: number;
+  building_qty?: number;
+  progress_percent?: number;
+  appraisal_land?: number;
+  appraisal_building?: number;
+  appraisal_balcony?: number;
+  depreciation_percent?: number;
+  utility_code?: string;
+  tax_rate_percent?: number;
+  province_name?: string;
+  amphur_name?: string;
+  district_name?: string;
+  is_status: string;
+  record_id?: number;
+  record_date?: string;
+  update_id?: string;
+  update_date?: string;
+  project_name?: string; // UI usage
+  utility_description?: string; // UI usage
+}
+
+export interface BrwcaHead {
+  comp_code: string;
+  brw_no: string;
+  brw_date: string;
+  staff_code?: string;
+  outlocation_code?: string;
+  outstock_code?: string;
+  inlocation_code?: string;
+  instock_code?: string;
+  is_manager?: string;
+  manager_code?: string;
+  manager_date?: string;
+  is_checker?: string;
+  checker_code?: string;
+  checker_date?: string;
+  is_boq?: string;
+  is_checker2?: string;
+  checker2_code?: string;
+  checker2_date?: string;
+  approve_code?: string;
+  approve_date?: string;
+  budget_code?: string;
+  pr_no?: string;
+  is_stock?: string;
+  remark?: string;
+  is_status: string;
+  update_id?: number;
+  update_date?: string;
+  is_tax?: string;
+  tax_percent?: number;
+  is_vat?: string;
+  vat_percent?: number;
+}
+
+export interface BrwcaDetail {
+  comp_code: string;
+  brw_no: string;
+  seq: number;
+  serialno?: string;
+  product_code?: string;
+  product_name?: string; // UI usage
+  location_code?: string;
+  stock_code?: string;
+  comp_code_buy?: string;
+  price?: number;
+  cost_percent?: number;
+  cost_amount?: number;
+  total_amount?: number;
+  id?: string; // UI internal ID
+}
+
+export interface MsProject {
+  project_code: string;
+  description: string;
+  comp_code: string;
+  is_status: string;
+  is_project_type?: string;
+  is_lease?: string;
+  is_bg?: string;
+  is_opm?: string;
+  is_bud?: string;
+  is_con?: string;
+  is_mtop?: string;
+  is_case?: string;
+  is_rf?: string;
+  is_labor?: string;
+  is_notime?: string;
+  is_group?: string;
+  is_monthn_e?: string;
+  note_sday_e?: number;
+  note_eday_e?: number;
+  is_monthp_e?: string;
+  paid_sday_e?: number;
+  paid_eday_e?: number;
+  is_monthn_w?: string;
+  note_sday_w?: number;
+  note_eday_w?: number;
+  is_monthp_w?: string;
+  paid_sday_w?: number;
+  paid_eday_w?: number;
+  fund_amount?: number;
+  center_amount?: number;
+  meter_water?: number;
+  meter_electric?: number;
+  install_water?: number;
+  install_electric?: number;
+  room_qty?: number;
+  tax_percent?: number;
+  total_area_qty?: number;
+  building_year?: number;
+  tower_no?: number;
+  floor_no?: number;
+  level_no?: number;
+  project_name_rem?: string;
+  project_brand_code?: string;
+  project_legal_code?: string;
+  rms_code?: string;
+  update_id?: string;
+  update_date?: string;
+  location_code?: string;
+  branch_id?: string;
+  [key: string]: any;
+}
+
+export interface MsSupplier {
+  supplier_code: string;
+  supplier_name: string;
+  rms_code?: string;
+  address1?: string;
+  address2?: string;
+  supplier_name_e?: string;
+  addresse1?: string;
+  addresse2?: string;
+  phone?: string;
+  fax?: string;
+  email?: string;
+  vat_percent?: number;
+  pass_no?: string;
+  is_vat?: string;
+  is_status: string;
+  account_code_s?: string;
+  account_code_t?: string;
+  record_id?: string;
+  record_date?: string;
+  update_id?: string;
+  update_date?: string;
+}
+
+export interface MsProduct {
+  comp_code: string;
+  product_code: string;
+  barcode?: string;
+  product_brand_code?: string;
+  product_group_code?: string;
+  product_type_code?: string;
+  product_subtype_code?: string;
+  product_name: string;
+  model?: string;
+  unit_buy?: string;
+  buyamt1?: number;
+  buyamt2?: number;
+  unit_sale?: string;
+  saleamt1?: number;
+  saleamt2?: number;
+  assort_kit?: string;
+  avg_cost?: number;
+  std_cost?: number;
+  std_price?: number;
+  stock_min?: number;
+  lead_time?: number;
+  photo_path_a?: string;
+  photo_path_b?: string;
+  is_warranty?: string;
+  total_warranty?: number;
+  in_vat?: string;
+  extra_spec?: string;
+  product_master?: string;
+  point_total?: number;
+  is_spec?: string;
+  is_spare?: string;
+  is_status: string;
+  update_id?: string;
+  update_date?: string;
+  is_rent?: string;
+  account_code?: string;
+  is_depreciate?: string;
+  total_max?: number;
+  is_special?: string;
+  idp_code?: string;
+  is_notf?: string;
+  is_trade?: string;
+  is_type?: string;
+  is_rf?: string;
+  account_code_c?: string;
+  account_code_e?: string;
+}
 
 export interface Product {
   product_code: string;
@@ -44,14 +286,14 @@ export interface ReceiveDetail {
   total_qty: number;
   price: number;
   total_amount: number;
-  id?: string;
+  id?: string; // UI temporary ID
 }
 
 export interface SalesHead {
   doc_no: string;
   doc_date: string;
-  comp_code: string;
   is_status: string;
+  comp_code?: string;
 }
 
 export interface SalesDetail {
@@ -59,9 +301,13 @@ export interface SalesDetail {
   product_code: string;
   product_name: string;
   qty: number;
+  id?: string; // UI temporary ID
 }
 
-export type WarehouseType = 'IN' | 'OUT';
+export interface WarehouseType {
+  code: string;
+  description: string;
+}
 
 export interface StockMovement {
   date: string;
@@ -72,6 +318,8 @@ export interface StockMovement {
   balance: number;
 }
 
+export type MovementItem = StockMovement;
+
 export interface ProjectItem {
   project_code: string;
   description: string;
@@ -81,17 +329,37 @@ export interface ProjectItem {
 export interface CompanyItem {
   comp_code: string;
   comp_name: string;
-  is_status: string;
-  cms_id?: string;
-  tax_id?: string;
+  comp_id?: string;
   address1?: string;
+  address2?: string;
+  comp_namee?: string;
   addresse1?: string;
+  addresse2?: string;
   phone?: string;
   fax?: string;
   email?: string;
-  comp_namee?: string;
+  tax_id?: string;
+  vat_percent?: number;
+  pass_no?: string;
+  is_security?: string;
+  is_status: string;
+  is_inout?: string;
+  is_comp?: string;
+  is_bg?: string;
+  is_group?: string;
+  is_head?: string;
   update_id?: string;
   update_date?: string;
+  is_type?: string;
+  staff1_code?: string;
+  staff2_code?: string;
+  is_grouprf?: string;
+  is_rf?: string;
+  branch_id?: string;
+  bank_code?: string;
+  account_no?: string;
+  account_branch?: string;
+  cms_id?: string;
 }
 
 export interface StaffItem {
@@ -159,16 +427,11 @@ export interface DashboardSummary {
   lowStockCount: number;
 }
 
-export interface MovementItem {
-  date: string;
-  balance: number;
-}
-
 export interface StockBalanceItem {
   name: string;
   qty: number;
-  code: string;
   type: string;
+  code?: string;
 }
 
 export interface BrwcHead {
@@ -202,9 +465,10 @@ export interface PlanCheckHead {
   stock_code?: string;
   staff_code: string;
   remark?: string;
-  is_enter: string;
+  is_enter?: string;
   is_approve?: string;
   is_vp?: string;
+  vp_code?: string;
 }
 
 export interface PlanCheckDetail {
@@ -212,23 +476,19 @@ export interface PlanCheckDetail {
   seq: number;
   serialno: string;
   is_status: string;
-  staff_code: string;
+  staff_code?: string;
   staff_name?: string;
   comp_code: string;
 }
 
-export interface MasterGroup {
-  product_group_code: string;
-  description: string;
+export interface MasterGroup extends ProductGroupItem {
   is_status: string;
   update_id?: string;
   update_date?: string;
 }
 
-export interface MasterType {
+export interface MasterType extends ProductTypeItem {
   product_group_code: string;
-  product_type_code: string;
-  description: string;
   is_status: string;
   account_code?: string;
   desc_eng?: string;
@@ -244,57 +504,10 @@ export interface MasterSubtype {
   product_subtype_code: string;
   description: string;
   is_status: string;
-  desc_eng?: string;
   idp_code?: string;
+  desc_eng?: string;
   update_id?: string;
   update_date?: string;
-}
-
-export interface MsProduct {
-  comp_code: string;
-  product_code: string;
-  product_name: string;
-  is_status: string;
-  is_spec: string;
-  is_spare: string;
-  is_rent: string;
-  is_special: string;
-  is_trade: string;
-  is_type: string;
-  is_rf: string;
-  is_notf: string;
-  product_master: string;
-  is_warranty: string;
-  is_depreciate: string;
-  barcode?: string;
-  product_brand_code?: string;
-  product_group_code?: string;
-  product_type_code?: string;
-  product_subtype_code?: string;
-  model?: string;
-  assort_kit?: string;
-  extra_spec?: string;
-  idp_code?: string;
-  photo_path_a?: string;
-  photo_path_b?: string;
-  unit_buy?: string;
-  buyamt1?: number;
-  buyamt2?: number;
-  unit_sale?: string;
-  saleamt1?: number;
-  saleamt2?: number;
-  std_price?: number;
-  std_cost?: number;
-  avg_cost?: number;
-  stock_min?: number;
-  lead_time?: number;
-  total_max?: number;
-  point_total?: number;
-  total_warranty?: number;
-  in_vat?: string;
-  account_code?: string;
-  account_code_c?: string;
-  account_code_e?: string;
 }
 
 export interface MsProductComponent {
@@ -312,65 +525,16 @@ export interface MsProductMemo {
   product_memo: string;
 }
 
-export interface MsProject {
-  project_code: string;
-  description: string;
-  comp_code: string;
-  is_status: string;
-  is_project_type: string;
-  is_lease: string;
-  is_bg: string;
-  is_opm: string;
-  is_bud: string;
-  is_con: string;
-  is_mtop: string;
-  is_case: string;
-  is_rf: string;
-  is_labor: string;
-  is_notime: string;
-  is_group: string;
-  is_monthn_e?: string;
-  note_sday_e?: number;
-  note_eday_e?: number;
-  is_monthp_e?: string;
-  paid_sday_e?: number;
-  paid_eday_e?: number;
-  is_monthn_w?: string;
-  note_sday_w?: number;
-  note_eday_w?: number;
-  is_monthp_w?: string;
-  paid_sday_w?: number;
-  paid_eday_w?: number;
-  fund_amount?: number;
-  center_amount?: number;
-  meter_water?: number;
-  meter_electric?: number;
-  install_water?: number;
-  install_electric?: number;
-  room_qty?: number;
-  tax_percent?: number;
-  total_area_qty?: number;
-  building_year?: number;
-  tower_no?: number;
-  floor_no?: number;
-  level_no?: number;
-  project_name_rem?: string;
-  project_brand_code?: string;
-  project_legal_code?: string;
-  rms_code?: string;
-}
-
 export interface SystemNode {
   sid: string;
   name: string;
-  groups: {
-    pgid: string;
-    name: string;
-    programs: {
-      pid: string;
-      name: string;
-    }[];
-  }[];
+  groups: SystemGroupNode[];
+}
+
+export interface SystemGroupNode {
+  pgid: string;
+  name: string;
+  programs: ProgramItem[];
 }
 
 export interface ProgramItem {
@@ -383,7 +547,7 @@ export interface ProgramItem {
 export interface MemoBudgetHead {
   memo_no: string;
   memo_date: string;
-  is_first: string;
+  is_first: string; // '1' or '2'
   staff_code: string;
   memo_staff_code: string;
   department_code: string;
@@ -437,13 +601,13 @@ export interface MemoItRentalDetail {
   comp_code: string;
   memo_no: string;
   seq: number;
-  location_code?: string;
-  stock_code?: string;
   owner_staff_code?: string;
   owner_name?: string;
   position_code?: string;
   product_name?: string;
   serialno?: string;
+  location_code?: string;
+  stock_code?: string;
   cost_amount?: number;
   remark?: string;
   id?: string;
@@ -455,18 +619,24 @@ export interface ReceiveCaHead {
   receive_no: string;
   receive_date: string;
   staff_code: string;
-  remark?: string;
+  remark: string;
   is_status: string;
 }
 
 export interface ReceiveCaDetail {
+  id?: string;
   comp_code: string;
   receive_no: string;
   seq: number;
   product_code: string;
   product_name?: string;
   serialno?: string;
-  total_amount?: number;
-  price?: number;
-  id?: string;
+  total_amount: number;
+  price: number;
+}
+
+// Added MsBank interface to resolve import errors in apiService and MasterCompany
+export interface MsBank {
+  bank_code: string;
+  description: string;
 }
